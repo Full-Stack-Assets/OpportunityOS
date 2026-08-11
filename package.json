@@ -12,7 +12,7 @@
   },
   "scripts": {
     "test": "node --experimental-strip-types --test packages/core/test/*.test.mjs packages/postgres/test/*.test.mjs",
-    "typecheck": "npm run typecheck:local && npm run typecheck --workspace @opportunityos/worker && npm run typecheck --workspace @opportunityos/control-plane",
+    "typecheck": "npm run build:core && npm run typecheck:local && npm run typecheck --workspace @opportunityos/worker && npm run typecheck --workspace @opportunityos/control-plane",
     "build:core": "tsc -p packages/core/tsconfig.json",
     "build": "npm run build:core && npm run build --workspace @opportunityos/postgres && npm run build --workspace @opportunityos/worker && npm run build --workspace @opportunityos/control-plane",
     "dev": "npm run dev --workspace @opportunityos/control-plane",

@@ -6,14 +6,14 @@
 
 ## Verified in the current runtime
 
-- Core + PostgreSQL behavioral suite: **12/12 passed, 0 failed**.
+- Core + PostgreSQL behavioral suite: **13/13 passed, 0 failed**.
 - Strict TypeScript check: `packages/core` passed.
 - Strict TypeScript check: `packages/postgres` passed.
 - Worker TypeScript check: passed against the locally built `@opportunityos/core` workspace package.
 - Core build: passed.
 - PostgreSQL adapter build: passed.
 - Worker build: passed.
-- Smoke execution: `COMPLETED`, independent verification `true`, execution mode `SIMULATION`, external side effects `0`, two chained receipts produced.
+- Smoke execution: `COMPLETED`, independent verification `true`, execution mode `SIMULATION`, external side effects `0`, three chained receipts produced.
 - Secret-like source scan: passed; no token/private-key pattern was detected in publishable source.
 
 ## Intentionally not claimed

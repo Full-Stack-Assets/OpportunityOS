@@ -3,7 +3,7 @@
 | Capability | Release 0.1 evidence | Status |
 |---|---|---|
 | Canonical hashing | Node behavioral test | Verified locally |
-| Payload-bound approval | Node behavioral test | Verified locally |
+| Payload-bound approval | Node behavioral test + orchestration denial-without-approval test | Verified locally |
 | Receipt chaining | Node behavioral test | Verified locally |
 | Opportunity ranking | Node behavioral test | Verified locally |
 | WorkOrder FSM | Node behavioral test | Verified locally |

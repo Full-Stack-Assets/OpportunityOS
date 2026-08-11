@@ -13,6 +13,7 @@ import {
   verifyArtifact,
   calculateEconomics,
   runSimulationWorkOrder,
+  createSimulationIntent,
 } from '../src/index.ts';
 
 test('canonical hash is stable across object key order', () => {
@@ -123,8 +124,24 @@ test('economics never fabricates unknown revenue and uses integer cents', () => 
   });
 });
 
-test('simulation orchestration completes only after BuildGraph, factory, and independent verification', async () => {
-  const result = await runSimulationWorkOrder({
+test('simulation orchestration refuses to execute without a payload-bound Trust Kernel approval', async () => {
+  await assert.rejects(() => runSimulationWorkOrder({
+    workOrderId: 'wo-no-auth',
+    preflight: {
+      requestId: 'bg-auth', decision: 'CREATE_NEW', justification: 'No reusable project satisfies this capability set',
+      candidates: [], reusePlan: { reuse: [], extend: [], create: ['dashboard'] },
+      wasteRisk: { score: 5, estimatedRecreationPercent: 2, factors: [] },
+      evidence: { projectIds: [], constraintIds: [], decisionIds: [] },
+      generatedAt: '2026-08-11T19:00:00.000Z', payloadHash: 'bg-auth-hash'
+    },
+    requirements: [{ id: 'r1', description: 'Produce dashboard simulation artifact', dependsOn: [] }],
+    factory: 'SOFTWARE_WEB',
+    now: '2026-08-11T19:00:00.000Z',
+  }), /AUTHORIZATION_REQUIRED/);
+});
+
+test('simulation orchestration completes only after BuildGraph, Trust Kernel authorization, factory, and independent verification', async () => {
+  const input = {
     workOrderId: 'wo-sim-1',
     preflight: {
       requestId: 'bg-1', decision: 'CREATE_NEW', justification: 'No reusable project satisfies this capability set',
@@ -136,7 +153,14 @@ test('simulation orchestration completes only after BuildGraph, factory, and ind
     requirements: [{ id: 'r1', description: 'Produce dashboard simulation artifact', dependsOn: [] }],
     factory: 'SOFTWARE_WEB',
     now: '2026-08-11T19:00:00.000Z',
+  };
+  const approval = createApproval(createSimulationIntent(input), {
+    approvalId: 'approval-sim-1',
+    subject: 'operator@example.test',
+    expiresAt: '2026-08-11T20:00:00.000Z',
+    signature: 'signed',
   });
+  const result = await runSimulationWorkOrder({ ...input, approval, verifySignature: async () => true });
   assert.equal(result.workOrder.state, 'COMPLETED');
   assert.equal(result.verification.verified, true);
   assert.equal(result.executionMode, 'SIMULATION');

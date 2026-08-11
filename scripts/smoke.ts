@@ -1,10 +1,14 @@
-import { runSimulationWorkOrder } from '../packages/core/src/index.ts';
+import {
+  createApproval,
+  createSimulationIntent,
+  runSimulationWorkOrder,
+} from '../packages/core/src/index.ts';
 
-const result = await runSimulationWorkOrder({
+const input = {
   workOrderId: 'smoke-work-order',
   preflight: {
     requestId: 'smoke-preflight',
-    decision: 'CREATE_NEW',
+    decision: 'CREATE_NEW' as const,
     justification: 'Smoke fixture explicitly represents a successful BuildGraph CREATE_NEW response.',
     candidates: [],
     reusePlan: { reuse: [], extend: [], create: ['smoke-artifact'] },
@@ -14,9 +18,17 @@ const result = await runSimulationWorkOrder({
     payloadHash: 'smoke-preflight-fixture',
   },
   requirements: [{ id: 'smoke', description: 'Create a simulation-only smoke artifact', dependsOn: [] }],
-  factory: 'SOFTWARE_WEB',
+  factory: 'SOFTWARE_WEB' as const,
   now: '2026-08-11T19:00:00.000Z',
+};
+
+const approval = createApproval(createSimulationIntent(input), {
+  approvalId: 'smoke-approval',
+  subject: 'smoke-verifier',
+  expiresAt: '2026-08-11T20:00:00.000Z',
+  signature: 'smoke-signature-fixture',
 });
+const result = await runSimulationWorkOrder({ ...input, approval, verifySignature: async () => true });
 
 if (result.workOrder.state !== 'COMPLETED' || !result.verification.verified || result.externalSideEffects !== 0) {
   throw new Error('OpportunityOS smoke verification failed');
