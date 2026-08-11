@@ -1,0 +1,38 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #080a0d;
+  color: #f5f7fa;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(circle at top left, #18202c 0, #080a0d 42rem); }
+.shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 72px 0 96px; }
+.hero { display: grid; grid-template-columns: 1.8fr 0.8fr; gap: 28px; align-items: end; padding-bottom: 48px; border-bottom: 1px solid #2a3039; }
+.eyebrow { margin: 0 0 10px; color: #95a2b4; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+h1 { margin: 0; font-size: clamp(54px, 9vw, 116px); line-height: .88; letter-spacing: -.065em; }
+h2 { margin: 0; font-size: clamp(30px, 4vw, 52px); letter-spacing: -.035em; }
+.lede { max-width: 760px; margin: 28px 0 0; color: #bcc5d2; font-size: 19px; line-height: 1.55; }
+.modeCard, .statusGrid article, .stage, .boundary { border: 1px solid #2a3039; background: rgba(16, 20, 26, .82); }
+.modeCard { padding: 24px; border-radius: 18px; }
+.modeCard span, .statusGrid span { display: block; color: #8e9aaa; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; }
+.modeCard strong { display: block; margin: 8px 0; font-size: 28px; }
+.modeCard small { color: #aeb8c6; line-height: 1.45; }
+.statusGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 28px 0 72px; }
+.statusGrid article { padding: 18px; border-radius: 14px; }
+.statusGrid strong { display: block; margin-top: 8px; font-size: 17px; }
+.sectionTitle { margin-bottom: 24px; }
+.stageGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.stage { min-height: 190px; padding: 20px; border-radius: 16px; }
+.stage > span { color: #718099; font-size: 12px; }
+.stage h3 { margin: 42px 0 8px; font-size: 22px; }
+.stage p { margin: 0; color: #aeb8c6; line-height: 1.5; }
+.boundary { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; margin-top: 72px; padding: 36px; border-radius: 20px; }
+.boundary > p { margin: 0; color: #bcc5d2; font-size: 18px; line-height: 1.65; }
+@media (max-width: 900px) {
+  .hero, .boundary { grid-template-columns: 1fr; }
+  .statusGrid, .stageGrid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .shell { width: min(100% - 24px, 1180px); padding-top: 40px; }
+  .statusGrid, .stageGrid { grid-template-columns: 1fr; }
+}
