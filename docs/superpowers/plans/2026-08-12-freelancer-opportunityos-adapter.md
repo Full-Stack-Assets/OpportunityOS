@@ -4,9 +4,9 @@
 
 **Goal:** Add a fail-closed, read-only Freelancer.com source adapter and a matching verified marketplace-evidence boundary without widening OpportunityOS into marketplace writes or live consequential execution.
 
-**Architecture:** Keep provider access in an isolated Python FastMCP connector under `connectors/freelancer`. Keep cross-provider evidence semantics in `packages/core/src/source.ts`, separate from the existing ranking model. Verify the connector independently in CI while preserving all existing Node gates.
+**Architecture:** Keep provider access in an isolated Python `MCPServer` connector under `connectors/freelancer`, targeting MCP Python SDK v2. Keep cross-provider evidence semantics in `packages/core/src/source.ts`, separate from the existing ranking model. Verify the connector independently in CI while preserving all existing Node gates.
 
-**Tech Stack:** Python 3.10+, MCP Python SDK/FastMCP, requests, pytest, Node 22+, TypeScript 6, Node test runner, GitHub Actions.
+**Tech Stack:** Python 3.10+, MCP Python SDK v2 (`MCPServer`), requests, pytest, Node 22+, TypeScript 6, Node test runner, GitHub Actions.
 
 ## Global Constraints
 
