@@ -11,7 +11,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test packages/core/test/*.test.mjs packages/postgres/test/*.test.mjs",
+    "test": "node --experimental-strip-types --test packages/core/test/*.test.mjs packages/postgres/test/*.test.mjs && node scripts/verify-buildgraph-plugins.mjs",
     "typecheck": "npm run build:core && npm run typecheck:local && npm run typecheck --workspace @opportunityos/worker && npm run typecheck --workspace @opportunityos/control-plane && npm run typecheck --workspace @opportunityos/buildgraph-mcp",
     "build:core": "tsc -p packages/core/tsconfig.json",
     "build": "npm run build:core && npm run build --workspace @opportunityos/postgres && npm run build --workspace @opportunityos/worker && npm run build --workspace @opportunityos/control-plane && npm run build --workspace @opportunityos/buildgraph-mcp",
