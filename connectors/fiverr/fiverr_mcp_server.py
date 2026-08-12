@@ -36,6 +36,7 @@ _BLOCK_MARKERS = (
     "challenge-platform",
     "verify you are human",
 )
+_SUPPORTED_CURRENCY_CODES = {"USD", "EUR", "GBP"}
 
 
 def _utc_now() -> str:
@@ -115,7 +116,8 @@ def _source_id(card, canonical_url: str) -> str:
         value = card.get(attr)
         if isinstance(value, str) and value.strip():
             return value.strip()
-    return hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
+    return f"url_sha256:{digest}"
 
 
 def _parse_price(card) -> tuple[int | float | None, str | None]:
@@ -123,16 +125,18 @@ def _parse_price(card) -> tuple[int | float | None, str | None]:
     if price_node is None:
         return None, None
     text = price_node.get_text(" ", strip=True)
-    match = re.search(r"([$€£])\s*([0-9]+(?:\.[0-9]{1,2})?)", text)
-    if match is None:
+    amount_match = re.search(r"(?:[$€£]\s*)?([0-9]+(?:\.[0-9]{1,2})?)", text)
+    if amount_match is None:
         return None, None
-    symbol, number = match.groups()
-    currency = {"$": "USD", "€": "EUR", "£": "GBP"}.get(symbol)
-    if currency is None:
-        return None, None
-    value = float(number)
+    value = float(amount_match.group(1))
     if value.is_integer():
         value = int(value)
+
+    upper_text = text.upper()
+    currency = next(
+        (code for code in _SUPPORTED_CURRENCY_CODES if re.search(rf"\b{code}\b", upper_text)),
+        None,
+    )
     return value, currency
 
 
@@ -265,6 +269,16 @@ def _validate_listing_url(url: str) -> str | None:
     return _canonical_listing_url(url)
 
 
+def _matching_canonical_marker(soup: BeautifulSoup, canonical_url: str) -> bool:
+    marker = soup.select_one('link[rel="canonical"][href]')
+    if marker is None:
+        return False
+    href = marker.get("href")
+    if not isinstance(href, str):
+        return False
+    return _canonical_listing_url(href) == canonical_url
+
+
 @mcp.tool()
 def get_fiverr_listing_details(url: str) -> str:
     """Retrieve a public Fiverr listing only when real source facts can be verified."""
@@ -310,7 +324,7 @@ def get_fiverr_listing_details(url: str) -> str:
     soup = BeautifulSoup(text, "html.parser")
     title_node = soup.select_one("h1")
     title = title_node.get_text(" ", strip=True) if title_node else ""
-    if not title:
+    if not title or not _matching_canonical_marker(soup, canonical_url):
         return json.dumps({
             "status": "unsupported",
             "source": "fiverr",
