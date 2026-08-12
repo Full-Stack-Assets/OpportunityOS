@@ -15,7 +15,9 @@ This repository is intentionally fail-closed. It does **not** claim live consequ
 - Append-only chained verification receipts
 - Opportunity ranking using capability fit, evidence quality, expected value, effort, and urgency
 - Verified marketplace-source evidence contract that rejects unverified records at the source boundary
-- Read-only Freelancer.com MCP Python SDK v2 source adapter with fail-closed retrieval and no simulated opportunities
+- Mandatory marketplace `record_kind` classification separating `buyer_opportunity` from `service_listing`
+- Read-only Freelancer.com MCP Python SDK v2 source adapter with fail-closed retrieval and `buyer_opportunity` records
+- Read-only Fiverr MCP Python SDK v2 source adapter with fail-closed public-web retrieval and `service_listing` records
 - Explicit WorkOrder finite-state machine with `NEEDS_YOU`
 - Requirements compiler with dependency validation and cycle rejection
 - BuildGraph `/v1/preflight` client and fail-closed reuse gate
@@ -30,10 +32,17 @@ This repository is intentionally fail-closed. It does **not** claim live consequ
 ## Architecture
 
 ```text
-Opportunity Sources
+Marketplace / Opportunity Sources
       │
       ▼
-Verified Source Evidence ──► Opportunity Registry ──► Capability Ranking
+Verified Source Evidence + record_kind
+      │
+      ├── buyer_opportunity ──► Opportunity Registry ──► Capability Ranking
+      │
+      └── service_listing ────► market-intelligence use only
+                                 (not buyer-opportunity execution admission)
+
+buyer_opportunity
       │
       ▼
 BuildGraph Preflight ── REUSE/EXTEND/FORK ──► NEEDS_YOU / reuse path
@@ -54,21 +63,32 @@ Independent Verifier ──► Receipt Chain
 Artifacts + Economics + Telemetry
 ```
 
-Security domains are deliberately separated: source adapters cannot manufacture verified evidence after retrieval failure, factories do not authorize themselves, BuildGraph decisions cannot be silently bypassed, and verifier evidence is distinct from factory output.
+Security domains are deliberately separated: source adapters cannot manufacture verified evidence after retrieval failure, seller-service records cannot masquerade as buyer demand, factories do not authorize themselves, BuildGraph decisions cannot be silently bypassed, and verifier evidence is distinct from factory output.
 
 ## Marketplace source adapters
 
-`connectors/freelancer` is the first canonical marketplace-source adapter. It uses the Freelancer API through a portable Python `MCPServer` built on MCP Python SDK v2 and emits the source-fact schema defined by `packages/core/src/source.ts`.
+### Freelancer.com
+
+`connectors/freelancer` is the canonical buyer-demand marketplace adapter. It uses the Freelancer API through a portable Python `MCPServer` built on MCP Python SDK v2 and emits `record_kind: "buyer_opportunity"` records using the source-fact schema in `packages/core/src/source.ts`.
 
 The connector is read-only in this release. It can search projects, retrieve public profile context, generate an OAuth authorization URL, and report its capabilities. It does not submit bids, send messages, accept projects, create/release milestones, make payments, or automatically activate a live OpportunityOS execution path.
 
-Failed, rejected, malformed, or structurally unusable marketplace responses produce explicit unverified failure states and zero opportunities. No synthetic fallback project is admitted as source evidence.
+### Fiverr
+
+`connectors/fiverr` is a lower-trust public-web discovery adapter for Fiverr seller service listings. Every admitted Fiverr record is `record_kind: "service_listing"`.
+
+Fiverr seller listings may inform competitive analysis, pricing context, market research, or capability positioning, but they cannot satisfy `isBuyerOpportunityEvidence()` and therefore cannot directly enter buyer-opportunity execution or create a client WorkOrder.
+
+Fiverr retrieval is fail-closed. Network failures, non-success responses, anti-bot/Cloudflare verification pages, selector drift, or structurally unusable responses return zero verified listings. The connector does not attempt to bypass anti-bot controls or use browser-session secrets. Missing prices, currencies, or other values remain unknown rather than being fabricated.
+
+Affiliate candidate URLs are isolated from evidence and ranking. Their parameter semantics are explicitly marked unverified and `affects_ranking` remains false.
 
 ## Repository layout
 
-- `packages/core` — deterministic domain logic, source-evidence contract, Trust Kernel contracts, BuildGraph gate, factories, verifier, economics
+- `packages/core` — deterministic domain logic, source-evidence and record-kind contract, Trust Kernel contracts, BuildGraph gate, factories, verifier, economics
 - `packages/postgres` — persistence adapter boundary
-- `connectors/freelancer` — read-only Freelancer.com MCP source adapter and tests
+- `connectors/freelancer` — read-only Freelancer.com buyer-opportunity source adapter and tests
+- `connectors/fiverr` — read-only Fiverr service-listing discovery adapter and tests
 - `apps/worker` — simulation-safe WorkOrder worker
 - `apps/control-plane` — Next.js operator surface
 - `database/migrations` — PostgreSQL canonical schema
@@ -85,12 +105,20 @@ npm run typecheck:local
 npm run smoke
 ```
 
-The Freelancer connector is verified separately:
+Verify the Freelancer connector with:
 
 ```bash
 pip install -r connectors/freelancer/requirements.txt
 pytest -q connectors/freelancer/tests
 python3 -m py_compile connectors/freelancer/freelancer_mcp_server.py
+```
+
+Verify the Fiverr connector with:
+
+```bash
+pip install -r connectors/fiverr/requirements.txt
+pytest -q connectors/fiverr/tests
+python3 -m py_compile connectors/fiverr/fiverr_mcp_server.py
 ```
 
 The complete control-plane build needs npm registry access:
@@ -112,6 +140,8 @@ Copy `.env.example` into your secret-management system. Do not commit real crede
 - `FREELANCER_API_BASE` — Freelancer API base URL; defaults to the production API in the connector
 - `FREELANCER_ACCESS_TOKEN` — optional environment-supplied OAuth access token; never commit it
 
+The Fiverr adapter in this tranche requires no stored Fiverr credential or browser-session secret.
+
 ## Deployment boundary
 
-Deployment remains provider-neutral and is not activated by this release. Adding the read-only Freelancer source adapter does not activate production deployment, marketplace writes, or live consequential execution.
+Deployment remains provider-neutral and is not activated by this release. Adding read-only Freelancer and Fiverr source adapters does not activate production deployment, marketplace writes, or live consequential execution. Passing mocked Fiverr parser tests does not claim that live public Fiverr retrieval is currently available or stable.
