@@ -1,6 +1,7 @@
 export * from './canonical.ts';
 export * from './trust-kernel.ts';
 export * from './opportunity.ts';
+export * from './source.ts';
 export * from './work-order.ts';
 export * from './requirements.ts';
 export * from './buildgraph.ts';
