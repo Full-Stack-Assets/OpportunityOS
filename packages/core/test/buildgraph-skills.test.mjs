@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   BUILDGRAPH_CAPABILITIES,
   resolveCapabilityGraph,
-} from '../dist/index.js';
+} from '../src/index.ts';
 
 test('resolves ordered prerequisites for client delivery', () => {
   const result = resolveCapabilityGraph('delivery.prepare', new Set(BUILDGRAPH_CAPABILITIES.map((node) => node.id)));
