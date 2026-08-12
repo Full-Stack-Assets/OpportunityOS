@@ -91,18 +91,18 @@ Where the source actually provides the values, Fiverr records will normalize to 
 ```json
 {
   "platform": "fiverr",
-  "platform_id": "source-derived-id-or-stable-source-key",
+  "platform_id": "url_sha256:2fdb62f01a61bc30f646901b9d4a0c3c98a68d510c65061cfbd552bfb7fda8c1",
   "record_kind": "service_listing",
   "title": "Example retrieved Fiverr listing title",
   "description": null,
-  "budget_min": 50,
+  "budget_min": null,
   "budget_max": null,
-  "currency": "USD",
+  "currency": null,
   "bid_count": null,
   "skills": [],
   "employer_id": null,
   "deadline": null,
-  "source_url": "https://www.fiverr.com/...",
+  "source_url": "https://www.fiverr.com/example-seller/example-listing",
   "retrieved_at": "2026-08-12T10:00:00Z",
   "retrieval_method": "fiverr_public_web",
   "verified": true,
@@ -110,14 +110,21 @@ Where the source actually provides the values, Fiverr records will normalize to 
 }
 ```
 
-Rules:
+Identity rules are deterministic:
+
+1. If Fiverr exposes a stable source listing/gig identifier in the retrieved record, `platform_id` is that source identifier normalized to a non-blank string.
+2. Otherwise, the adapter canonicalizes the verified Fiverr listing URL by stripping fragments and non-identity tracking parameters, then uses `platform_id = "url_sha256:" + SHA256(canonical_url)`.
+3. Titles, prices, seller names, search positions, or other mutable presentation fields are never used to manufacture identity.
+
+Source-fact rules:
 
 1. Every populated marketplace fact must be traceable to the retrieved Fiverr response.
 2. Missing data remains `null` or `[]`; it is never replaced by plausible defaults.
-3. A record cannot be `verified: true` without a real retrieved listing URL, non-blank title, stable source identity, retrieval timestamp, and successful structural validation.
-4. Currency is populated only when supported by the retrieved source context; it is not silently defaulted to USD.
-5. Seller listings are always `record_kind: service_listing` unless a future separately designed Fiverr buyer-demand endpoint/source proves otherwise.
-6. `service_listing` records may be used for market intelligence downstream but must not enter autonomous client-task execution as if they were buyer opportunities.
+3. A record cannot be `verified: true` without a real retrieved listing URL, non-blank title, deterministic source identity, retrieval timestamp, and successful structural validation.
+4. Price is populated only when the retrieved source explicitly exposes a parseable price for that listing.
+5. Currency is populated only when the retrieved source explicitly supports the currency association; it is never silently defaulted to USD.
+6. Seller listings are always `record_kind: service_listing` unless a future separately designed Fiverr buyer-demand source proves otherwise.
+7. `service_listing` records may be used for market intelligence downstream but must not enter autonomous client-task execution as if they were buyer opportunities.
 
 ## Tools
 
@@ -142,7 +149,7 @@ This tool will exist only if the implementation can retrieve and verify real lis
 
 If reliable detail retrieval cannot be demonstrated in tests, the existing stub behavior will not be preserved under a misleading success name. The implementation will either:
 
-- return an explicit `unavailable`/`unsupported` result, or
+- return an explicit `unavailable` or `unsupported` result; or
 - omit the tool until a real retrieval contract exists.
 
 It must never return `status: success` merely because a URL can be constructed or opened manually.
@@ -218,6 +225,8 @@ Tests will cover:
 - limit validation;
 - successful source-backed listing normalization;
 - source-kind classification;
+- deterministic source-ID derivation;
+- canonical URL handling;
 - missing optional values preserved as null/empty;
 - non-success response failure;
 - network failure;
@@ -226,7 +235,6 @@ Tests will cover:
 - selector-drift/no-verifiable-listings behavior;
 - no synthetic fallback path;
 - no fabricated price/currency/title values;
-- source URL and stable identity behavior;
 - capability/health reporting;
 - no marketplace write tools;
 - no secret leakage;
