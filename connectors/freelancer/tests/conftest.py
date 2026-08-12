@@ -1,4 +1,4 @@
-"""Test-only FastMCP shim used only when the external mcp package is unavailable."""
+"""Test-only MCPServer shim used only when the external mcp package is unavailable."""
 from __future__ import annotations
 
 import importlib.util
@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
 
 
 if importlib.util.find_spec("mcp") is None:
-    class FakeFastMCP:
+    class FakeMCPServer:
         def __init__(self, name: str):
             self.name = name
             self._registered_tools: list[str] = []
@@ -33,11 +33,8 @@ if importlib.util.find_spec("mcp") is None:
 
     mcp_module = types.ModuleType("mcp")
     server_module = types.ModuleType("mcp.server")
-    fastmcp_module = types.ModuleType("mcp.server.fastmcp")
-    fastmcp_module.FastMCP = FakeFastMCP
-    server_module.fastmcp = fastmcp_module
+    server_module.MCPServer = FakeMCPServer
     mcp_module.server = server_module
 
     sys.modules["mcp"] = mcp_module
     sys.modules["mcp.server"] = server_module
-    sys.modules["mcp.server.fastmcp"] = fastmcp_module
