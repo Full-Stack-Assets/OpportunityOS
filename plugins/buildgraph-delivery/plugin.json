@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "name": "buildgraph-delivery",
+  "displayName": "BuildGraph Delivery",
+  "description": "Verified delivery preparation and follow-up readiness without autonomous external sending.",
+  "mcpPath": "/mcp",
+  "allowedTools": [
+    "buildgraph_check_readiness",
+    "buildgraph_verify_completion"
+  ],
+  "authority": {
+    "readOnly": true,
+    "consequentialWrites": false,
+    "humanApprovalRequiredForWrites": true
+  },
+  "skills": [
+    "preparing-client-delivery",
+    "following-up",
+    "routing-human-approval"
+  ]
+}
