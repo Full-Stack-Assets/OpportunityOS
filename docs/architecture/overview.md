@@ -14,7 +14,7 @@ Marketplace adapters therefore terminate at the evidence boundary. A source adap
 
 `packages/core/src/source.ts` defines the canonical marketplace opportunity evidence contract. Records must carry source identity, provenance, retrieval method, source URL, retrieval timestamp, and `verified: true` before they can cross the verified-source boundary.
 
-The first concrete adapter is `connectors/freelancer`, a read-only FastMCP server for Freelancer.com. It fails closed on upstream errors or malformed payloads, emits zero opportunities on retrieval failure, and exposes no bidding, messaging, milestone, payment, or other marketplace-write tools.
+The first concrete adapter is `connectors/freelancer`, a read-only `MCPServer` built on MCP Python SDK v2 for Freelancer.com. It fails closed on upstream errors or malformed payloads, emits zero opportunities on retrieval failure, and exposes no bidding, messaging, milestone, payment, or other marketplace-write tools.
 
 Ranking remains downstream. Capability fit, evidence quality, expected value, effort, urgency, competition, and autonomous-execution feasibility are not created by the source adapter.
 
