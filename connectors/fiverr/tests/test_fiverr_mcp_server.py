@@ -17,7 +17,7 @@ def _listing_html():
     <html><body>
       <div class="gig-card-layout" data-gig-id="98765">
         <a class="gig-title" href="/seller/build-a-python-automation">Build a Python automation</a>
-        <span class="price">From $120</span>
+        <span class="price">From USD $120</span>
       </div>
     </body></html>
     '''
@@ -64,13 +64,27 @@ def test_missing_price_is_not_fabricated(monkeypatch):
     assert item["currency"] is None
 
 
-def test_url_fallback_identity_is_deterministic_sha256(monkeypatch):
+def test_symbol_only_price_does_not_infer_currency(monkeypatch):
+    html = '''
+    <div class="gig-card-layout">
+      <a class="gig-title" href="/seller/symbol-only">Symbol only</a>
+      <span class="price">From $120</span>
+    </div>
+    '''
+    monkeypatch.setattr(server.requests, "get", lambda *a, **k: _response(text=html))
+    item = json.loads(server.search_fiverr_listings("python"))["listings"][0]
+    assert item["budget_min"] == 120
+    assert item["currency"] is None
+
+
+def test_url_fallback_identity_is_namespaced_deterministic_sha256(monkeypatch):
     html = '<div class="gig-card-layout"><a class="gig-title" href="/seller/no-id">No source id</a></div>'
     monkeypatch.setattr(server.requests, "get", lambda *a, **k: _response(text=html))
     first = json.loads(server.search_fiverr_listings("python"))["listings"][0]
     second = json.loads(server.search_fiverr_listings("python"))["listings"][0]
     assert first["platform_id"] == second["platform_id"]
-    assert len(first["platform_id"]) == 64
+    assert first["platform_id"].startswith("url_sha256:")
+    assert len(first["platform_id"].removeprefix("url_sha256:")) == 64
 
 
 def test_non_200_fails_closed(monkeypatch):
@@ -123,6 +137,26 @@ def test_listing_details_never_claim_success_without_retrieved_facts(monkeypatch
     payload = json.loads(server.get_fiverr_listing_details("https://www.fiverr.com/seller/gig"))
     assert payload["status"] != "success"
     assert payload["verified"] is False
+
+
+def test_listing_details_require_matching_canonical_source_marker(monkeypatch):
+    html = '<html><head></head><body><h1>Generic Fiverr page</h1></body></html>'
+    monkeypatch.setattr(server.requests, "get", lambda *a, **k: _response(text=html))
+    payload = json.loads(server.get_fiverr_listing_details("https://www.fiverr.com/seller/gig"))
+    assert payload["status"] == "unsupported"
+    assert payload["verified"] is False
+
+
+def test_listing_details_accept_matching_canonical_source_marker(monkeypatch):
+    html = '''
+    <html><head><link rel="canonical" href="https://www.fiverr.com/seller/gig"></head>
+    <body><h1>Verified source title</h1></body></html>
+    '''
+    monkeypatch.setattr(server.requests, "get", lambda *a, **k: _response(text=html))
+    payload = json.loads(server.get_fiverr_listing_details("https://www.fiverr.com/seller/gig"))
+    assert payload["status"] == "success"
+    assert payload["verified"] is True
+    assert payload["title"] == "Verified source title"
 
 
 def test_affiliate_link_is_explicitly_unverified():
