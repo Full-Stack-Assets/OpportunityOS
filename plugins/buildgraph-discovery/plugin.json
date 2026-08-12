@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "name": "buildgraph-discovery",
+  "displayName": "BuildGraph Discovery",
+  "description": "Opportunity intake, source evidence, and capability inspection for discovery workflows.",
+  "mcpPath": "/mcp",
+  "allowedTools": [
+    "buildgraph_list_capabilities",
+    "buildgraph_check_readiness"
+  ],
+  "authority": {
+    "readOnly": true,
+    "consequentialWrites": false,
+    "humanApprovalRequiredForWrites": true
+  },
+  "skills": [
+    "discovering-opportunities",
+    "qualifying-opportunities",
+    "using-buildgraph"
+  ]
+}
