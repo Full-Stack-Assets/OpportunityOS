@@ -138,6 +138,17 @@ def test_non_fiverr_urls_are_rejected():
     assert payload["verified"] is False
 
 
+def test_non_listing_fiverr_paths_are_rejected():
+    for url in (
+        "https://www.fiverr.com/search/gigs",
+        "https://www.fiverr.com/categories/programming-tech",
+        "https://www.fiverr.com/login",
+    ):
+        payload = json.loads(server.generate_fiverr_affiliate_link(url, "abc123"))
+        assert payload["status"] == "error"
+        assert payload["verified"] is False
+
+
 def test_no_write_tools_are_defined():
     prohibited = {"send_message", "purchase_gig", "create_order", "checkout", "financial_action"}
     assert prohibited.isdisjoint(set(dir(server)))
