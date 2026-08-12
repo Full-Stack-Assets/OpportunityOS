@@ -19,6 +19,7 @@
 - MCP runtime is SDK v2 (`mcp>=2,<3`) using `mcp.server.MCPServer`.
 - `OPPORTUNITYOS_EXECUTION_MODE` remains `simulation`.
 - Work remains on `codex/fiverr-source-adapter`; no merge or deployment in this tranche.
+- Because the execution container cannot resolve GitHub, draft-PR CI is the authoritative RED/GREEN test runner for branch commits. The draft PR may be opened before Task 5 solely to obtain CI and must remain draft and unmerged.
 
 ---
 
@@ -190,7 +191,7 @@ Commit message: `ci: verify Fiverr marketplace adapter`
 
 ### Task 5: Exact-head review branch acceptance
 
-- [ ] Open a draft PR from `codex/fiverr-source-adapter` to `main` without merging.
+- [ ] Open a draft PR from `codex/fiverr-source-adapter` to `main` without merging (may already be open for CI-backed TDD).
 - [ ] Inspect exact PR head and GitHub Actions result.
 - [ ] If CI fails, diagnose the exact failing step, reproduce the root cause, patch with a regression test where code-related, and rerun until green or a genuine external blocker is identified.
 - [ ] Confirm no synthetic listing path, marketplace write tool, Cloudflare bypass, secret persistence, affiliate-driven ranking behavior, deployment activation, or production-success claim was introduced.
