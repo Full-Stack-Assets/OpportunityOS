@@ -3,7 +3,6 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import {
   BUILDGRAPH_CAPABILITIES,
   resolveCapabilityGraph,
-  type CapabilityNode,
 } from '@opportunityos/core';
 import cors from 'cors';
 import express from 'express';
@@ -57,7 +56,7 @@ function createServer(): McpServer {
     async ({ goalId, availableCapabilities }) => {
       const available = new Set(availableCapabilities ?? BUILDGRAPH_CAPABILITIES.map((node) => node.id));
       try {
-        return toolResult(resolveCapabilityGraph(goalId, available));
+        return toolResult({ ...resolveCapabilityGraph(goalId, available) });
       } catch (error) {
         return toolError(error);
       }
@@ -181,7 +180,7 @@ function createServer(): McpServer {
   return server;
 }
 
-function toolResult(structuredContent: unknown) {
+function toolResult(structuredContent: Record<string, unknown>) {
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(structuredContent) }],
     structuredContent,
