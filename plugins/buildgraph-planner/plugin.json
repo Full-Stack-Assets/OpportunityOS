@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "name": "buildgraph-planner",
+  "displayName": "BuildGraph Planner",
+  "description": "Capability graph resolution, dependency planning, readiness scoring, and capability-gap analysis.",
+  "mcpPath": "/mcp",
+  "allowedTools": [
+    "buildgraph_list_capabilities",
+    "buildgraph_resolve_workflow",
+    "buildgraph_check_readiness",
+    "buildgraph_capability_gaps"
+  ],
+  "authority": {
+    "readOnly": true,
+    "consequentialWrites": false,
+    "humanApprovalRequiredForWrites": true
+  },
+  "skills": [
+    "using-buildgraph",
+    "planning-fulfillment",
+    "learning-capability-gaps"
+  ]
+}

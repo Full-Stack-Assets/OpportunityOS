@@ -5,6 +5,7 @@ export * from './source.ts';
 export * from './work-order.ts';
 export * from './requirements.ts';
 export * from './buildgraph.ts';
+export * from './buildgraph-skills.ts';
 export * from './factories.ts';
 export * from './verification.ts';
 export * from './economics.ts';
