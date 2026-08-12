@@ -62,7 +62,7 @@ Keep `FREELANCER_ACCESS_TOKEN` outside source control. Do not place passwords, s
 
 ## Install
 
-Python 3.10 or newer is required.
+Python 3.10 or newer is required. The connector targets MCP Python SDK v2 (`mcp>=2,<3`) and uses `mcp.server.MCPServer`.
 
 ```bash
 python3 -m venv .venv
@@ -85,7 +85,7 @@ pytest -q connectors/freelancer/tests
 python3 -m py_compile connectors/freelancer/freelancer_mcp_server.py
 ```
 
-Tests mock marketplace HTTP traffic. When the external MCP package is installed—as it is in CI—the registration test calls the real FastMCP tool-discovery API. The test-only shim is used only in constrained local runners where `mcp` is absent.
+Tests mock marketplace HTTP traffic. When the external MCP package is installed—as it is in CI—the registration test calls the real MCPServer tool-discovery API. The test-only shim is used only in constrained local runners where `mcp` is absent.
 
 ## Error states
 
