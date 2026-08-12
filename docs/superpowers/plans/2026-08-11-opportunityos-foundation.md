@@ -17,7 +17,7 @@
 - Factory output is not trusted until an independent verifier produces evidence.
 - Monetary values use integer cents; unknown economics remain unknown rather than fabricated.
 - PostgreSQL is the canonical production persistence target; memory-only behavior is test/simulation support.
-- Render and Vercel are excluded deployment targets; deployment remains provider-neutral.
+- Deployment remains provider-neutral and inactive in this release.
 - Secret-like files and credentials must never be committed.
 
 ---
