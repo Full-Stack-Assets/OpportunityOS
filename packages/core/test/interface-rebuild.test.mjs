@@ -15,3 +15,11 @@ test('approved OpportunityOS discovery-to-verification interface is present', ()
   assert.match(page, /Owner/);
   assert.match(page, /simulation/i);
 });
+
+test('preview records and pipeline counts are explicitly non-live', () => {
+  assert.match(page, /Interface preview/);
+  assert.match(page, /Synthetic pipeline counts/);
+  assert.match(page, /Synthetic review data/);
+  assert.match(page, /does not widen the authority/i);
+  assert.doesNotMatch(page, /live opportunities/i);
+});
