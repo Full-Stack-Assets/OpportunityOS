@@ -15,7 +15,7 @@ This repository is intentionally fail-closed. It does **not** claim live consequ
 - Append-only chained verification receipts
 - Opportunity ranking using capability fit, evidence quality, expected value, effort, and urgency
 - Verified marketplace-source evidence contract that rejects unverified records at the source boundary
-- Read-only Freelancer.com FastMCP source adapter with fail-closed retrieval and no simulated opportunities
+- Read-only Freelancer.com MCP Python SDK v2 source adapter with fail-closed retrieval and no simulated opportunities
 - Explicit WorkOrder finite-state machine with `NEEDS_YOU`
 - Requirements compiler with dependency validation and cycle rejection
 - BuildGraph `/v1/preflight` client and fail-closed reuse gate
@@ -58,7 +58,7 @@ Security domains are deliberately separated: source adapters cannot manufacture 
 
 ## Marketplace source adapters
 
-`connectors/freelancer` is the first canonical marketplace-source adapter. It uses the Freelancer API through a portable Python FastMCP server and emits the source-fact schema defined by `packages/core/src/source.ts`.
+`connectors/freelancer` is the first canonical marketplace-source adapter. It uses the Freelancer API through a portable Python `MCPServer` built on MCP Python SDK v2 and emits the source-fact schema defined by `packages/core/src/source.ts`.
 
 The connector is read-only in this release. It can search projects, retrieve public profile context, generate an OAuth authorization URL, and report its capabilities. It does not submit bids, send messages, accept projects, create/release milestones, make payments, or automatically activate a live OpportunityOS execution path.
 
@@ -68,7 +68,7 @@ Failed, rejected, malformed, or structurally unusable marketplace responses prod
 
 - `packages/core` — deterministic domain logic, source-evidence contract, Trust Kernel contracts, BuildGraph gate, factories, verifier, economics
 - `packages/postgres` — persistence adapter boundary
-- `connectors/freelancer` — read-only Freelancer.com FastMCP source adapter and tests
+- `connectors/freelancer` — read-only Freelancer.com MCP source adapter and tests
 - `apps/worker` — simulation-safe WorkOrder worker
 - `apps/control-plane` — Next.js operator surface
 - `database/migrations` — PostgreSQL canonical schema
