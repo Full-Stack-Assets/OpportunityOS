@@ -93,4 +93,4 @@ Copy `.env.example` into your secret-management system. Do not commit real crede
 
 ## Deployment boundary
 
-Deployment is provider-neutral. Render and Vercel are intentionally excluded. No production deployment or live external-action activation is claimed by this repository.
+Deployment remains provider-neutral and is not activated by this release. No production deployment or live external-action activation is claimed by this repository.
