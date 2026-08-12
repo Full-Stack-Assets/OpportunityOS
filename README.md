@@ -18,6 +18,7 @@ This repository is intentionally fail-closed. It does **not** claim live consequ
 - Mandatory marketplace `record_kind` classification separating `buyer_opportunity` from `service_listing`
 - Read-only Freelancer.com MCP Python SDK v2 source adapter with fail-closed retrieval and `buyer_opportunity` records
 - Read-only Fiverr MCP Python SDK v2 source adapter with fail-closed public-web retrieval and `service_listing` records
+- Provider-neutral Opportunity Aggregator for verification, classification, conservative dedupe, explicit scoring joins, deterministic ranking, and Top-N shortlist production
 - Explicit WorkOrder finite-state machine with `NEEDS_YOU`
 - Requirements compiler with dependency validation and cycle rejection
 - BuildGraph `/v1/preflight` client and fail-closed reuse gate
@@ -37,14 +38,26 @@ Marketplace / Opportunity Sources
       ▼
 Verified Source Evidence + record_kind
       │
-      ├── buyer_opportunity ──► Opportunity Registry ──► Capability Ranking
-      │
-      └── service_listing ────► market-intelligence use only
-                                 (not buyer-opportunity execution admission)
-
-buyer_opportunity
-      │
       ▼
+Aggregate / Classify / Conservative Dedupe
+      │
+      ├── service_listing ──► market-intelligence output only
+      │
+      └── buyer_opportunity
+              │
+              ▼
+      Join Explicit Derived Scoring Inputs
+              │
+              ▼
+      Existing Deterministic Ranker
+              │
+              ▼
+          Top-N Shortlist
+              │
+              ▼
+      [future orchestration boundary]
+              │
+              ▼
 BuildGraph Preflight ── REUSE/EXTEND/FORK ──► NEEDS_YOU / reuse path
       │ CREATE_NEW
       ▼
@@ -63,7 +76,19 @@ Independent Verifier ──► Receipt Chain
 Artifacts + Economics + Telemetry
 ```
 
-Security domains are deliberately separated: source adapters cannot manufacture verified evidence after retrieval failure, seller-service records cannot masquerade as buyer demand, factories do not authorize themselves, BuildGraph decisions cannot be silently bypassed, and verifier evidence is distinct from factory output.
+The current Top-N shortlist is analysis output only. It is **not** a bid queue, application queue, WorkOrder queue, fulfillment trigger, or authorization to perform marketplace actions.
+
+Security domains are deliberately separated: source adapters cannot manufacture verified evidence after retrieval failure, seller-service records cannot masquerade as buyer demand, the aggregator cannot create missing scoring facts or external side effects, factories do not authorize themselves, BuildGraph decisions cannot be silently bypassed, and verifier evidence is distinct from factory output.
+
+## Opportunity Aggregator
+
+`packages/core/src/aggregator.ts` is a pure provider-neutral transformation over normalized `MarketplaceOpportunityEvidence[]` plus separately supplied OpportunityOS scoring inputs.
+
+It independently validates source records, isolates `service_listing` records as intelligence, deduplicates buyer opportunities conservatively, joins explicit scoring inputs, and reuses the existing `rankOpportunities()` formula. It does not call marketplace connectors, provider APIs, PostgreSQL, WorkOrder creation, BuildGraph, Trust Kernel authorization, factories, messaging, bidding, purchasing, or payment code.
+
+Exact duplicate selection is deterministic: newest `retrieved_at`, then lexicographically smaller `source_url`, then lower original input index. Cross-platform records and fuzzy/semantic lookalikes are deliberately not merged.
+
+Missing or ambiguous scoring inputs do not invalidate verified buyer evidence. They remain explainable accepted records but are excluded from ranking until exactly one valid scoring row is supplied. Missing expected value remains unknown rather than being fabricated.
 
 ## Marketplace source adapters
 
@@ -77,7 +102,7 @@ The connector is read-only in this release. It can search projects, retrieve pub
 
 `connectors/fiverr` is a lower-trust public-web discovery adapter for Fiverr seller service listings. Every admitted Fiverr record is `record_kind: "service_listing"`.
 
-Fiverr seller listings may inform competitive analysis, pricing context, market research, or capability positioning, but they cannot satisfy `isBuyerOpportunityEvidence()` and therefore cannot directly enter buyer-opportunity execution or create a client WorkOrder.
+Fiverr seller listings may inform competitive analysis, pricing context, market research, or capability positioning, but they cannot satisfy `isBuyerOpportunityEvidence()` and therefore cannot directly enter buyer-opportunity ranking or create a client WorkOrder.
 
 Fiverr retrieval is fail-closed. Network failures, non-success responses, anti-bot/Cloudflare verification pages, selector drift, or structurally unusable responses return zero verified listings. The connector does not attempt to bypass anti-bot controls or use browser-session secrets. Missing prices, currencies, or other values remain unknown rather than being fabricated.
 
@@ -85,7 +110,7 @@ Affiliate candidate URLs are isolated from evidence and ranking. Their parameter
 
 ## Repository layout
 
-- `packages/core` — deterministic domain logic, source-evidence and record-kind contract, Trust Kernel contracts, BuildGraph gate, factories, verifier, economics
+- `packages/core` — deterministic domain logic, source-evidence and record-kind contract, Opportunity Aggregator, ranking, Trust Kernel contracts, BuildGraph gate, factories, verifier, economics
 - `packages/postgres` — persistence adapter boundary
 - `connectors/freelancer` — read-only Freelancer.com buyer-opportunity source adapter and tests
 - `connectors/fiverr` — read-only Fiverr service-listing discovery adapter and tests
@@ -97,7 +122,7 @@ Affiliate candidate URLs are isolated from evidence and ranking. Their parameter
 
 ## Local verification
 
-The dependency-free TypeScript core can be verified on Node 22 without installing packages:
+The TypeScript core can be verified on Node 22:
 
 ```bash
 npm test
@@ -144,4 +169,4 @@ The Fiverr adapter in this tranche requires no stored Fiverr credential or brows
 
 ## Deployment boundary
 
-Deployment remains provider-neutral and is not activated by this release. Adding read-only Freelancer and Fiverr source adapters does not activate production deployment, marketplace writes, or live consequential execution. Passing mocked Fiverr parser tests does not claim that live public Fiverr retrieval is currently available or stable.
+Deployment remains provider-neutral and is not activated by the marketplace-source or aggregator work. Adding the read-only adapters and deterministic shortlist does not activate marketplace writes or live consequential execution. Passing mocked connector tests and deterministic aggregator tests does not claim live public marketplace retrieval or fulfillment success.
