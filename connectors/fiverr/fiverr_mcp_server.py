@@ -38,6 +38,17 @@ _BLOCK_MARKERS = (
 )
 _SUPPORTED_CURRENCY_CODES = {"USD", "EUR", "GBP"}
 
+_RETRIEVAL_HEALTH = "degraded"
+_PARSER_STATE = "unverified_until_retrieval"
+_HEALTH_REASON = "No public Fiverr retrieval has been verified in this process yet."
+
+
+def _set_connector_state(health: str, parser_state: str, reason: str) -> None:
+    global _RETRIEVAL_HEALTH, _PARSER_STATE, _HEALTH_REASON
+    _RETRIEVAL_HEALTH = health
+    _PARSER_STATE = parser_state
+    _HEALTH_REASON = reason
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -209,12 +220,27 @@ def search_fiverr_listings(query: str, limit: int = 5) -> str:
         )
     except requests.RequestException:
         logger.warning("Fiverr search unavailable due to request failure")
+        _set_connector_state(
+            "unavailable",
+            "ready",
+            "The last public Fiverr search request could not be completed.",
+        )
         return _failure("unavailable", "Fiverr public search request could not be completed.", query=query)
     except Exception:
         logger.exception("Unexpected local error during Fiverr search")
+        _set_connector_state(
+            "unavailable",
+            "runtime_error",
+            "The last Fiverr search encountered an unexpected local runtime error.",
+        )
         return _failure("error", "Unexpected local error while searching Fiverr.", query=query)
 
     if response.status_code != 200:
+        _set_connector_state(
+            "unavailable",
+            "ready",
+            "The last public Fiverr search returned a non-success HTTP response.",
+        )
         return _failure(
             "unavailable",
             "Fiverr public search did not return a successful response.",
@@ -224,6 +250,11 @@ def search_fiverr_listings(query: str, limit: int = 5) -> str:
 
     text = response.text if isinstance(response.text, str) else ""
     if _is_block_page(text):
+        _set_connector_state(
+            "unavailable",
+            "ready",
+            "The last public Fiverr search was blocked by an anti-bot verification page.",
+        )
         return _failure(
             "unavailable",
             "Fiverr public search is currently blocked by an anti-bot verification page.",
@@ -233,6 +264,11 @@ def search_fiverr_listings(query: str, limit: int = 5) -> str:
     soup = BeautifulSoup(text, "html.parser")
     cards = _listing_cards(soup)
     if not cards:
+        _set_connector_state(
+            "degraded",
+            "source_shape_unverified",
+            "The last Fiverr response did not expose a verifiable service-listing card structure.",
+        )
         return _failure(
             "invalid_response",
             "Fiverr response contained no verifiable service-listing cards.",
@@ -249,12 +285,22 @@ def search_fiverr_listings(query: str, limit: int = 5) -> str:
             break
 
     if not listings:
+        _set_connector_state(
+            "degraded",
+            "source_shape_unverified",
+            "The last Fiverr response contained cards but no structurally valid service listings.",
+        )
         return _failure(
             "invalid_response",
             "Fiverr response contained no structurally valid service listings.",
             query=query,
         )
 
+    _set_connector_state(
+        "healthy",
+        "ready",
+        "The last public Fiverr retrieval produced structurally verified service-listing records.",
+    )
     return json.dumps({
         "status": "success",
         "source": "fiverr",
@@ -293,6 +339,11 @@ def get_fiverr_listing_details(url: str) -> str:
             timeout=10,
         )
     except requests.RequestException:
+        _set_connector_state(
+            "unavailable",
+            "ready",
+            "The last Fiverr listing-detail request could not be completed.",
+        )
         return json.dumps({
             "status": "unavailable",
             "source": "fiverr",
@@ -302,6 +353,11 @@ def get_fiverr_listing_details(url: str) -> str:
         }, indent=2)
 
     if response.status_code != 200:
+        _set_connector_state(
+            "unavailable",
+            "ready",
+            "The last Fiverr listing-detail request returned a non-success HTTP response.",
+        )
         return json.dumps({
             "status": "unavailable",
             "source": "fiverr",
@@ -313,6 +369,11 @@ def get_fiverr_listing_details(url: str) -> str:
 
     text = response.text if isinstance(response.text, str) else ""
     if _is_block_page(text):
+        _set_connector_state(
+            "unavailable",
+            "ready",
+            "The last Fiverr listing-detail request was blocked by an anti-bot verification page.",
+        )
         return json.dumps({
             "status": "unavailable",
             "source": "fiverr",
@@ -325,6 +386,11 @@ def get_fiverr_listing_details(url: str) -> str:
     title_node = soup.select_one("h1")
     title = title_node.get_text(" ", strip=True) if title_node else ""
     if not title or not _matching_canonical_marker(soup, canonical_url):
+        _set_connector_state(
+            "degraded",
+            "source_shape_unverified",
+            "The last Fiverr listing-detail response did not contain enough matching source evidence to verify the listing.",
+        )
         return json.dumps({
             "status": "unsupported",
             "source": "fiverr",
@@ -333,6 +399,11 @@ def get_fiverr_listing_details(url: str) -> str:
             "message": "No source-backed listing details could be verified from the public response.",
         }, indent=2)
 
+    _set_connector_state(
+        "healthy",
+        "ready",
+        "The last Fiverr listing-detail retrieval produced source-backed verified details.",
+    )
     return json.dumps({
         "status": "success",
         "source": "fiverr",
@@ -371,14 +442,16 @@ def generate_fiverr_affiliate_link(url: str, affiliate_id: str) -> str:
 
 @mcp.tool()
 def fiverr_connector_status() -> str:
-    """Report explicit read-only Fiverr connector capabilities."""
+    """Report explicit read-only Fiverr connector capabilities and last-observed retrieval state."""
     return json.dumps({
         "status": "ok",
         "connector": "fiverr",
         "version": CONNECTOR_VERSION,
         "mode": "read_only_service_listing_adapter",
-        "health": "degraded",
-        "health_reason": "Public-web retrieval may be blocked or change without notice.",
+        "health": _RETRIEVAL_HEALTH,
+        "retrieval_state": _RETRIEVAL_HEALTH,
+        "parser_state": _PARSER_STATE,
+        "health_reason": _HEALTH_REASON,
         "capabilities": {
             "listing_search": True,
             "listing_details": True,
