@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "name": "buildgraph-verifier",
+  "displayName": "BuildGraph Verifier",
+  "description": "Independent claim, evidence, acceptance, and completion verification for OpportunityOS workflows.",
+  "mcpPath": "/mcp",
+  "allowedTools": [
+    "buildgraph_list_capabilities",
+    "buildgraph_verify_completion"
+  ],
+  "authority": {
+    "readOnly": true,
+    "consequentialWrites": false,
+    "humanApprovalRequiredForWrites": true
+  },
+  "skills": [
+    "verifying-claims",
+    "verifying-deliverables"
+  ]
+}
