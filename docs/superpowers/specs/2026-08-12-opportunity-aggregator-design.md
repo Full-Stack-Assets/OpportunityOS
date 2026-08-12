@@ -11,11 +11,11 @@ Build the first provider-neutral OpportunityOS aggregation layer that converts n
 
 `ingest → verify → classify → dedupe → score → shortlist`
 
-The aggregator consumes normalized marketplace evidence. It does not retrieve from Freelancer, Fiverr, Contra, Upwork, or any other provider directly, and it does not perform marketplace writes, fulfillment, bidding, messaging, acceptance, purchasing, payment, or WorkOrder creation.
+The aggregator consumes normalized marketplace evidence. It does not retrieve from Freelancer, Fiverr, Contra, Upwork, or any provider directly, and it does not perform marketplace writes, fulfillment, bidding, messaging, acceptance, purchasing, payment, or WorkOrder creation.
 
 ## Architectural position
 
-Marketplace connectors remain responsible for provider-specific retrieval and normalization. The aggregator begins only after records have been shaped into `MarketplaceOpportunityEvidence`.
+Marketplace connectors remain responsible for provider-specific retrieval and normalization. The aggregator starts only after records are shaped into `MarketplaceOpportunityEvidence`.
 
 ```text
 Marketplace adapters
@@ -32,18 +32,18 @@ Opportunity Aggregator
       ├── structural verification
       ├── record-kind classification
       ├── deterministic exact dedupe
-      ├── conservative cross-record dedupe
+      ├── conservative source-equivalent dedupe
       ├── scoring-input join
       ├── existing rankOpportunities() engine
       └── deterministic Top-N shortlist
       │
-      ├── buyer shortlist
+      ├── accepted buyer records
       ├── service-listing intelligence
       ├── rejected records
       └── duplicate receipts
 ```
 
-This keeps provider retrieval, source evidence, derived judgments, and consequential execution in separate domains.
+Provider retrieval, source evidence, OpportunityOS-derived judgments, and consequential execution remain separate domains.
 
 ## Scope
 
@@ -62,14 +62,14 @@ In scope:
 
 Out of scope:
 
-- Calling MCP connectors or HTTP provider APIs from the aggregator.
+- Calling MCP connectors or provider HTTP APIs from the aggregator.
 - Scheduling or polling marketplace connectors.
-- Persisting aggregate state to PostgreSQL in this tranche.
+- PostgreSQL persistence for aggregate state in this tranche.
 - Creating or mutating WorkOrders.
 - Triggering BuildGraph, Trust Kernel approvals, factories, or fulfillment workers.
-- Marketplace bids, messages, applications, acceptance, purchases, checkout, payments, or other external writes.
+- Marketplace bids, messages, applications, acceptance, purchases, checkout, payments, or other writes.
 - LLM-generated scoring values inside the aggregator.
-- Fuzzy semantic duplicate merging based on embeddings or model judgment.
+- Fuzzy semantic duplicate merging using embeddings or model judgment.
 - Inventing economics, deadlines, effort, urgency, capability fit, or other missing derived values.
 
 ## Core files
@@ -78,24 +78,18 @@ Implementation will be centered in:
 
 - `packages/core/src/aggregator.ts` — provider-neutral aggregation logic.
 - `packages/core/test/aggregator.test.mjs` — deterministic behavioral tests.
-- `packages/core/src/index.ts` — exports for aggregator interfaces/functions.
+- `packages/core/src/index.ts` — public exports for aggregator interfaces/functions.
 - `docs/architecture/overview.md` and `README.md` — pipeline and boundary documentation.
 
-No provider connector file needs to know about aggregation internals.
+Provider connector files do not depend on aggregation internals.
 
 ## Input contracts
 
 ### Evidence input
 
-The aggregator consumes:
+The aggregator consumes `MarketplaceOpportunityEvidence[]`.
 
-```ts
-MarketplaceOpportunityEvidence[]
-```
-
-Every record is independently validated with `assertVerifiedMarketplaceOpportunityEvidence()` before it may enter a verified bucket.
-
-The aggregator must not mutate source evidence.
+Every record is independently validated with `assertVerifiedMarketplaceOpportunityEvidence()` before it may enter a verified bucket. The aggregator must not mutate source evidence.
 
 ### Scoring input
 
@@ -118,13 +112,12 @@ Rules:
 
 1. Scoring inputs are OpportunityOS-derived judgments, not marketplace facts.
 2. Scoring inputs never overwrite or mutate source evidence.
-3. `expectedValueCents` is optional. Missing value stays unknown and is passed to the existing ranking engine as `undefined`.
-4. Capability fit, evidence quality, effort points, and urgency must be explicitly supplied for a record to be ranked.
+3. `expectedValueCents` is optional. Missing value remains unknown and is passed to the existing ranking engine as `undefined`.
+4. Capability fit, evidence quality, effort points, and urgency must all be explicitly supplied for a record to be rank-eligible.
 5. The aggregator never fabricates missing scoring inputs.
+6. Runtime validation requires `scoringInputs` to be an array. Each entry must be a non-null object with a non-blank string `evidence_id`, finite numeric `capabilityFit`, `evidenceQuality`, `effortPoints`, and `deadlineUrgency`, and either an absent `expectedValueCents` or a non-negative integer value. Malformed individual scoring rows are recorded as invalid scoring inputs and do not abort valid neighboring rows.
 
 ## Output contract
-
-The main aggregation function will return a deterministic result shaped as:
 
 ```ts
 export interface AggregateOpportunityResult {
@@ -132,6 +125,7 @@ export interface AggregateOpportunityResult {
   intelligence: IntelligenceRecord[];
   rejected: RejectedRecord[];
   duplicates: DuplicateRecord[];
+  invalidScoringInputs: InvalidScoringInput[];
   shortlist: ShortlistedOpportunity[];
   stats: {
     received: number;
@@ -140,13 +134,15 @@ export interface AggregateOpportunityResult {
     serviceListings: number;
     duplicates: number;
     rejected: number;
+    invalidScoringInputs: number;
+    unusedScoringInputs: number;
     rankEligible: number;
     shortlisted: number;
   };
 }
 ```
 
-Every input record must have exactly one primary disposition after verification/deduplication:
+Every evidence input record has exactly one primary disposition after verification/deduplication:
 
 - `accepted_buyer`
 - `service_listing_intelligence`
@@ -154,40 +150,41 @@ Every input record must have exactly one primary disposition after verification/
 - `rejected_invalid`
 - `duplicate`
 
-An accepted buyer record then has a ranking disposition:
+An accepted buyer record then has one ranking disposition:
 
 - `shortlisted`
 - `ranked_not_shortlisted`
 - `missing_scoring_inputs`
+- `duplicate_scoring_inputs`
 
-This two-level disposition model prevents a valid buyer opportunity with missing derived scoring data from being mislabeled as invalid source evidence.
+This two-level model prevents a valid buyer opportunity with missing or ambiguous derived scoring data from being mislabeled as invalid source evidence.
 
 ## Verification behavior
 
-For each input record:
+For each evidence record:
 
 1. Attempt `assertVerifiedMarketplaceOpportunityEvidence(record)`.
-2. If verification fails because `verified !== true`, classify it as `rejected_unverified`.
-3. If verification fails for structural/source-contract reasons, classify it as `rejected_invalid`.
-4. Never throw away the failure silently; retain an index, source identity if safely available, and a stable machine-readable reason code.
-5. Do not include arbitrary exception strings or secret-bearing upstream payloads in public result objects.
+2. If `verified !== true`, classify it as `rejected_unverified`.
+3. If the shared source contract fails for another structural reason, classify it as `rejected_invalid`.
+4. Retain original input index, safely recoverable source identity, and stable machine-readable reason code.
+5. Do not expose arbitrary exception strings or upstream payloads in public aggregate results.
 
-Verified records proceed to deduplication.
+Malformed evidence never aborts valid neighboring records.
 
 ## Classification behavior
 
 After verification:
 
 - `record_kind === 'buyer_opportunity'` may proceed toward ranking.
-- `record_kind === 'service_listing'` goes to the `intelligence` bucket and cannot enter buyer ranking or shortlist admission.
+- `record_kind === 'service_listing'` enters the `intelligence` bucket and cannot enter buyer ranking or shortlist admission.
 
-The aggregator must use the shared `isBuyerOpportunityEvidence()` boundary rather than duplicating provider-specific assumptions.
+The aggregator uses the shared `isBuyerOpportunityEvidence()` boundary. Provider-specific assumptions are not duplicated in the aggregator.
 
-A `service_listing` cannot become a buyer opportunity because it has scoring inputs.
+A `service_listing` cannot become a buyer opportunity merely because scoring inputs exist for its evidence ID.
 
 ## Deduplication
 
-Deduplication is intentionally conservative and deterministic.
+Deduplication is conservative and deterministic.
 
 ### Stage 1: exact evidence identity
 
@@ -197,65 +194,63 @@ Primary key:
 marketplaceEvidenceId(record) = platform + ":" + platform_id
 ```
 
-If multiple verified records have the same evidence ID, retain exactly one canonical record.
+If multiple verified records share the same evidence ID, retain one canonical record using:
 
-Canonical selection rule:
+1. newest valid `retrieved_at` timestamp;
+2. if tied, lexicographically smaller `source_url`;
+3. if still tied, lowest original input index.
 
-1. Prefer the record with the newest valid `retrieved_at` timestamp.
-2. If timestamps are equal, prefer the lexicographically smaller `source_url`.
-3. Remaining ties are resolved by original input index.
+Removed records produce duplicate receipts with reason `exact_identity` and the retained evidence ID.
 
-All removed records produce duplicate receipts referencing the retained evidence ID and reason `exact_identity`.
+### Stage 2: conservative source-equivalent detection
 
-### Stage 2: conservative source-equivalent duplicate detection
+Cross-ID records may be collapsed only when all conditions hold:
 
-Cross-ID duplicates may be collapsed only when all of these are true:
-
-- both records are `buyer_opportunity`;
+- both are `buyer_opportunity`;
 - `platform` values are equal;
-- canonicalized source URLs are identical after stripping fragment and query components; and
-- normalized titles are identical after Unicode-aware trim, whitespace collapse, and lowercase conversion.
+- canonicalized source URLs are identical after dedupe-only normalization; and
+- normalized titles are identical after Unicode normalization (`NFKC`), trim, whitespace collapse, and locale-independent lowercase conversion.
 
 No substring matching, edit distance, embeddings, fuzzy similarity, semantic-model judgment, employer-name inference, or budget similarity is used.
 
-Canonical selection uses the same timestamp/URL/index rule as Stage 1.
+Canonical selection uses the same timestamp/URL/index rule. Reason code: `source_equivalent`.
 
-Reason code: `source_equivalent`.
+Records from different platforms are never merged in this tranche, even with identical titles or URLs that redirect to similar content.
 
-Records from different platforms are **not** merged in this tranche even when titles look identical.
+## Dedupe URL normalization
 
-## Canonical source URL normalization for dedupe
+For dedupe keys only:
 
-For dedupe only, normalize a verified source URL by:
+1. Parse as a URL.
+2. Lowercase hostname.
+3. Remove query and fragment.
+4. Remove a trailing slash from non-root paths.
+5. Preserve scheme, host, explicit port, and path.
 
-1. Parsing it as a URL.
-2. Lowercasing the hostname.
-3. Removing fragment and query.
-4. Removing a trailing slash from non-root paths.
-5. Preserving scheme, host, port if explicitly present, and path.
-
-If URL parsing fails despite the record already passing the shared evidence contract, do not perform Stage-2 dedupe for that record; retain it as distinct rather than guessing equivalence.
-
-This normalization is a dedupe key only. It never replaces `source_url` in source evidence.
+If parsing fails, skip Stage-2 dedupe for that record and retain it as distinct. This dedupe key never replaces `source_url` in evidence.
 
 ## Scoring join
 
 Only canonical verified buyer opportunities participate.
 
-Scoring inputs are indexed by `evidence_id`.
+Scoring rows are grouped by `evidence_id`.
 
 Rules:
 
-- Duplicate scoring rows for the same `evidence_id` are rejected as ambiguous configuration for that record.
-- Scoring rows with no matching canonical buyer evidence are ignored by aggregation and reported in `unusedScoringInputCount` or an equivalent stats field; they do not manufacture opportunities.
-- A buyer opportunity without a complete scoring input row remains accepted with ranking disposition `missing_scoring_inputs`.
+- Exactly one valid scoring row for a canonical buyer evidence ID makes that buyer rank-eligible.
+- Two or more valid scoring rows for the same evidence ID make that buyer's ranking disposition `duplicate_scoring_inputs`; the buyer remains accepted but is not ranked.
+- A buyer with zero valid scoring rows has ranking disposition `missing_scoring_inputs`.
+- Valid scoring rows with no matching canonical buyer evidence are ignored for ranking and counted in `stats.unusedScoringInputs`.
+- Invalid individual scoring rows appear in `invalidScoringInputs` and increment `stats.invalidScoringInputs`; they do not abort the batch.
 - Service listings never consume scoring inputs for buyer ranking.
+
+Duplicate or malformed scoring rows do **not** throw a batch-level error.
 
 ## Ranking
 
 The aggregator reuses `rankOpportunities()` from `packages/core/src/opportunity.ts`.
 
-For each rank-eligible buyer record, construct:
+For each rank-eligible buyer:
 
 ```ts
 {
@@ -268,13 +263,9 @@ For each rank-eligible buyer record, construct:
 }
 ```
 
-The aggregator must not introduce a second score formula.
-
-The resulting score is a derived OpportunityOS value and must be stored only in aggregate/ranking output, never written into the underlying marketplace evidence object.
+The aggregator must not introduce a second score formula. Score remains derived OpportunityOS output and is never written into underlying marketplace evidence.
 
 ## Shortlist behavior
-
-Main function signature:
 
 ```ts
 export function aggregateOpportunities(
@@ -286,21 +277,19 @@ export function aggregateOpportunities(
 
 `shortlistLimit` rules:
 
-- default: `10`;
+- default `10`;
 - integer only;
 - minimum `1`;
 - maximum `100`;
-- invalid values throw a deterministic `TypeError` before aggregation begins.
+- invalid values throw deterministic `TypeError` before record processing.
 
-Shortlist order is exactly the order returned by `rankOpportunities()` and is therefore deterministic by score and then evidence ID.
+The top-N shortlist preserves exactly the order returned by `rankOpportunities()`: score descending, then evidence ID ordering as already defined by the existing ranker.
 
-Only verified canonical `buyer_opportunity` records with complete scoring inputs can appear in `shortlist`.
+Only canonical verified `buyer_opportunity` records with exactly one valid scoring row can appear in `shortlist`.
 
 ## Explainability
 
-The aggregator must make exclusions auditable without exposing secrets.
-
-Machine-readable reason codes include at least:
+Machine-readable reason codes include:
 
 - `unverified_source`
 - `invalid_source_contract`
@@ -309,50 +298,58 @@ Machine-readable reason codes include at least:
 - `source_equivalent`
 - `missing_scoring_inputs`
 - `duplicate_scoring_inputs`
+- `invalid_scoring_input`
+- `unused_scoring_input`
 - `ranked_not_shortlisted`
 - `shortlisted`
 
-Result objects may include human-readable summaries, but downstream logic must rely on reason codes.
+Human-readable summaries may accompany these codes, but downstream logic relies on codes.
 
 ## Determinism
 
-Given identical evidence records, scoring inputs, and options, the result must be byte-for-byte equivalent after JSON serialization with the same property ordering produced by the implementation.
+Identical evidence, scoring inputs, and options must produce deeply equal results and identical JSON serialization under the implementation's fixed property ordering.
 
-No current time, randomness, network call, process-global mutable state, locale-sensitive ordering, or nondeterministic set iteration may affect the aggregate result.
+No current time, randomness, network call, process-global mutable state, locale-sensitive collation, or nondeterministic set iteration may affect output.
 
-The aggregator uses source-provided `retrieved_at`; it does not generate a new aggregation timestamp in the deterministic core function.
+The aggregator uses source-provided `retrieved_at`; it generates no aggregation timestamp inside the pure core function.
+
+All output arrays use explicit deterministic ordering:
+
+- `accepted`, `intelligence`, and canonical record groups: evidence ID ascending after canonical selection;
+- `rejected` and `invalidScoringInputs`: original input index ascending;
+- `duplicates`: retained evidence ID ascending, then duplicate original index ascending;
+- `shortlist`: existing `rankOpportunities()` order.
 
 ## Error handling
 
-Expected per-record source problems become dispositions rather than aborting the whole batch.
+Expected record-level problems become dispositions rather than batch failures.
 
-Batch-level errors are limited to invalid aggregator configuration, including:
+Batch-level throws are limited to malformed top-level function arguments and invalid `shortlistLimit`. Specifically:
 
-- invalid `shortlistLimit`;
-- malformed `scoringInputs` container shape if runtime validation is required;
-- duplicate scoring entries for the same evidence ID only insofar as that record cannot be ranked unambiguously.
+- `evidence` must be an array;
+- `scoringInputs` must be an array;
+- `options`, when provided, must be an object;
+- `shortlistLimit`, when provided, must satisfy its numeric contract.
 
-A malformed individual evidence record must not cause valid neighboring records to be lost.
+Malformed individual evidence or scoring rows never abort valid neighboring records.
 
 No error path may create a WorkOrder or invoke external systems.
 
 ## Execution boundary
 
-The aggregator is a pure core-domain transformation.
-
-It must not import or call:
+The aggregator is a pure core-domain transformation. It must not import or call:
 
 - provider connector modules;
 - MCP runtime objects;
 - HTTP clients;
 - PostgreSQL stores;
-- `createWorkOrder` or WorkOrder mutation functions;
+- WorkOrder creation/mutation functions;
 - BuildGraph network clients;
 - Trust Kernel authorization;
 - factories;
-- external notification, messaging, bidding, purchasing, or payment code.
+- notification, messaging, bidding, purchasing, or payment code.
 
-Its output can be consumed by later orchestration designs, but this tranche ends at shortlist production.
+This tranche ends at shortlist production.
 
 ## Testing strategy
 
@@ -360,30 +357,32 @@ Minimum behavioral coverage:
 
 1. verified buyer evidence is accepted;
 2. verified service listings are isolated into intelligence;
-3. unverified records are rejected without aborting the batch;
-4. structurally invalid records are rejected without aborting the batch;
+3. unverified evidence is rejected without aborting the batch;
+4. structurally invalid evidence is rejected without aborting the batch;
 5. exact evidence-ID duplicates collapse deterministically;
 6. newest `retrieved_at` wins exact duplicate selection;
 7. same-platform identical canonical URL + normalized title collapses as `source_equivalent`;
 8. cross-platform lookalikes remain distinct;
 9. near-title/fuzzy lookalikes remain distinct;
 10. missing scoring inputs preserve accepted evidence but exclude ranking;
-11. scoring inputs cannot turn a service listing into a buyer opportunity;
-12. duplicate scoring input rows are surfaced deterministically;
-13. unused scoring inputs cannot create records;
-14. existing `rankOpportunities()` determines final score/order;
-15. Top-N limit is deterministic;
-16. invalid shortlist limits are rejected;
-17. missing expected value remains unknown rather than fabricated;
-18. aggregation does not mutate input evidence or scoring objects;
-19. repeated identical calls produce deeply equal results;
-20. module has no provider/network/persistence/WorkOrder execution dependency.
+11. scoring inputs cannot turn a service listing into buyer demand;
+12. duplicate valid scoring rows exclude only the affected buyer from ranking;
+13. malformed scoring rows do not abort valid neighbors;
+14. unused scoring rows cannot create opportunities and are counted exactly;
+15. existing `rankOpportunities()` determines score/order;
+16. Top-N limit is deterministic;
+17. invalid shortlist limits are rejected;
+18. missing expected value remains unknown rather than fabricated;
+19. aggregation does not mutate evidence or scoring inputs;
+20. repeated identical calls produce deeply equal results;
+21. every output array follows the specified deterministic ordering;
+22. module has no provider/network/persistence/WorkOrder execution dependency.
 
 Existing core, connector, typecheck, smoke, and build gates must remain green.
 
 ## Documentation
 
-Repository docs will describe the resulting flow as:
+Repository docs will show:
 
 ```text
 SOURCE ADAPTERS
@@ -401,7 +400,7 @@ TOP-N SHORTLIST
 [future orchestration boundary]
 ```
 
-Documentation must explicitly state that the shortlist is not a bid queue, application queue, WorkOrder queue, or fulfillment trigger in this tranche.
+The shortlist is explicitly not a bid queue, application queue, WorkOrder queue, or fulfillment trigger in this tranche.
 
 ## Stacked-branch strategy
 
@@ -410,7 +409,7 @@ This branch is intentionally based on Fiverr PR #7's exact accepted head because
 Until PR #7 lands:
 
 - `codex/opportunity-aggregator` remains stacked on `codex/fiverr-source-adapter`.
-- Any aggregator PR should target `codex/fiverr-source-adapter`, not `main`, to keep the diff reviewable.
+- Any aggregator PR targets `codex/fiverr-source-adapter`, not `main`, so only aggregator changes appear in review.
 
 After PR #7 lands unchanged or equivalently:
 
@@ -426,13 +425,15 @@ The aggregator tranche is acceptable only when:
 - every verified record is classified using the shared evidence boundary;
 - `service_listing` never enters buyer-opportunity ranking;
 - exact duplicates collapse deterministically;
-- conservative source-equivalent duplicates collapse only under the specified exact conditions;
+- source-equivalent duplicates collapse only under the specified exact conditions;
 - cross-platform/fuzzy duplicates remain separate;
 - source evidence is never mutated;
 - missing scoring values are never invented;
+- malformed/duplicate scoring rows remain record-local failures;
 - existing `rankOpportunities()` remains the sole score formula;
 - every accepted/excluded input is explainable with deterministic reason codes;
 - only rank-eligible verified buyers can enter Top-N shortlist;
+- stats use the exact fields specified in this document, including `unusedScoringInputs` and `invalidScoringInputs`;
 - the core function has no external side effects;
-- existing OpportunityOS tests, typecheck, smoke verification, connector tests, and build remain green;
+- existing OpportunityOS tests, connector tests, typecheck, smoke verification, and build remain green;
 - work stays isolated on the stacked review branch and is not merged or deployed automatically.
