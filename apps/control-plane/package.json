@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@amplitude/unified": "^1",
     "@opportunityos/core": "0.1.0-simulation",
     "next": "^16.2.0",
     "react": "^19.2.7",
