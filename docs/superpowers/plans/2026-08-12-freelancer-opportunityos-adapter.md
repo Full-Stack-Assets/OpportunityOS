@@ -103,7 +103,7 @@
 
 ### Task 6: Final verification and review branch
 
-- [ ] Open a pull request from `codex/freelancer-source-adapter` to `main` without merging.
-- [ ] Inspect the exact PR head and GitHub Actions result.
-- [ ] If CI fails, reproduce/fix the issue on the review branch and repeat until green or a genuine external blocker is identified.
-- [ ] Confirm no secret value, simulated opportunity path, marketplace write tool, deployment activation, or production-success claim was introduced.
+- [x] Open a pull request from `codex/freelancer-source-adapter` to `main` without merging.
+- [x] Inspect the exact PR head and GitHub Actions result.
+- [x] If CI fails, reproduce/fix the issue on the review branch and repeat until green or a genuine external blocker is identified.
+- [x] Confirm no secret value, simulated opportunity path, marketplace write tool, deployment activation, or production-success claim was introduced.
