@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 from urllib.parse import quote, urlencode, urlparse
 
 import requests
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
-mcp = FastMCP("Freelancer Connector")
+mcp = MCPServer("Freelancer Connector")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("freelancer-mcp")
