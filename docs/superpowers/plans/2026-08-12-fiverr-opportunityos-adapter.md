@@ -36,47 +36,26 @@
 - Produces: `isBuyerOpportunityEvidence(evidence: MarketplaceOpportunityEvidence): evidence is VerifiedMarketplaceOpportunityEvidence`.
 - Changes: `MarketplaceOpportunityEvidence.record_kind` becomes mandatory.
 
-- [ ] **Step 1: Write failing core tests**
+- [x] **Step 1: Write failing core tests**
 
 Add tests that reject missing/invalid `record_kind`, accept both enum values, and prove `isBuyerOpportunityEvidence()` returns true only for verified `buyer_opportunity` records.
 
-- [ ] **Step 2: Run focused core tests to confirm RED**
+- [x] **Step 2: Run focused core tests to confirm RED**
 
 Run: `node --experimental-strip-types --test packages/core/test/source-evidence.test.mjs`
 Expected: FAIL because `record_kind` validation/helper do not exist.
 
-- [ ] **Step 3: Implement the minimum TypeScript contract**
+- [x] **Step 3: Implement the minimum TypeScript contract**
 
-Add the union type, mandatory field validation, and helper:
+Add the union type, mandatory field validation, and helper.
 
-```ts
-export type MarketplaceRecordKind = 'buyer_opportunity' | 'service_listing';
-
-export function isBuyerOpportunityEvidence(
-  evidence: MarketplaceOpportunityEvidence,
-): evidence is VerifiedMarketplaceOpportunityEvidence {
-  try {
-    assertVerifiedMarketplaceOpportunityEvidence(evidence);
-    return evidence.record_kind === 'buyer_opportunity';
-  } catch {
-    return false;
-  }
-}
-```
-
-- [ ] **Step 4: Update Freelancer output and tests**
+- [x] **Step 4: Update Freelancer output and tests**
 
 Add `record_kind: 'buyer_opportunity'` to every normalized Freelancer project and assert it in the connector suite.
 
-- [ ] **Step 5: Run core + Freelancer tests to GREEN**
+- [x] **Step 5: Run core + Freelancer tests to GREEN**
 
-Run:
-`node --experimental-strip-types --test packages/core/test/source-evidence.test.mjs`
-`pytest -q connectors/freelancer/tests`
-
-- [ ] **Step 6: Commit**
-
-Commit message: `feat: classify marketplace evidence by record kind`
+- [x] **Step 6: Commit**
 
 ### Task 2: Add fail-closed Fiverr listing discovery
 
@@ -90,34 +69,23 @@ Commit message: `feat: classify marketplace evidence by record kind`
 - Produces: `search_fiverr_listings(query: str, limit: int = 5) -> str`.
 - Produces normalized records using the shared evidence shape with `record_kind: 'service_listing'`.
 
-- [ ] **Step 1: Write failing connector tests**
+- [x] **Step 1: Write failing connector tests**
 
 Cover blank query, limit outside `1..50`, source-backed normalization, deterministic identity from canonical URL, missing optional values, non-200, network failure, Cloudflare/block-page detection, malformed/no-verifiable-listing response, no simulated path, and MCP v2 registration.
 
-- [ ] **Step 2: Run Fiverr tests to confirm RED**
+- [x] **Step 2: Run Fiverr tests to confirm RED**
 
-Run: `pytest -q connectors/fiverr/tests`
-Expected: FAIL because connector does not exist.
+The CI-backed RED run failed at collection with `ModuleNotFoundError: No module named 'fiverr_mcp_server'`, while the core and Freelancer gates were green.
 
-- [ ] **Step 3: Implement minimal read-only connector**
+- [x] **Step 3: Implement minimal read-only connector**
 
-Use `requests.get(..., timeout=10)`, `BeautifulSoup`, explicit block-page detection, bounded selectors, canonical Fiverr URLs, SHA-256 canonical-URL fallback identity when no source ID exists, and fail-closed JSON states: `success`, `unavailable`, `invalid_response`, `error`.
+Use `requests.get(..., timeout=10)`, `BeautifulSoup`, explicit block-page detection, bounded selectors, canonical Fiverr listing URLs, SHA-256 canonical-URL fallback identity when no source ID exists, and fail-closed JSON states.
 
-Never populate price/currency unless present and parseable from the retrieved listing content.
+- [x] **Step 4: Run Fiverr tests to GREEN**
 
-- [ ] **Step 4: Run Fiverr tests to GREEN**
+- [x] **Step 5: Compile connector**
 
-Run: `pytest -q connectors/fiverr/tests`
-Expected: PASS.
-
-- [ ] **Step 5: Compile connector**
-
-Run: `python -m py_compile connectors/fiverr/fiverr_mcp_server.py`
-Expected: exit 0.
-
-- [ ] **Step 6: Commit**
-
-Commit message: `feat: add fail-closed Fiverr service-listing adapter`
+- [x] **Step 6: Commit**
 
 ### Task 3: Add Fiverr status/details/affiliate boundaries
 
@@ -128,31 +96,23 @@ Commit message: `feat: add fail-closed Fiverr service-listing adapter`
 **Interfaces:**
 - Produces: `fiverr_connector_status() -> str`.
 - Produces: `get_fiverr_listing_details(url: str) -> str` only as verified retrieval or explicit unsupported/unavailable response.
-- Produces: `generate_fiverr_affiliate_link(url: str, affiliate_id: str) -> str` as isolated, explicitly unverified URL construction unless current official format is verified.
+- Produces: `generate_fiverr_affiliate_link(url: str, affiliate_id: str) -> str` as isolated, explicitly unverified URL construction.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Test health/capability flags, no secret leakage, no write tools, detail lookup never claims success without retrieved facts, strict Fiverr URL validation, and affiliate output never changes evidence/ranking fields.
 
-- [ ] **Step 2: Run focused tests to confirm RED**
+- [x] **Step 2: Run focused RED tests**
 
-Run: `pytest -q connectors/fiverr/tests -k 'status or details or affiliate or write'`
-Expected: FAIL for missing functions/contracts.
+A later strict-listing-path regression was also run RED and correctly demonstrated that generic Fiverr paths were previously accepted before the shared listing-URL validator was tightened.
 
-- [ ] **Step 3: Implement the minimum tools**
+- [x] **Step 3: Implement the minimum tools**
 
-Status reports `listing_search`, `listing_details`, `affiliate_url_generation`, `buyer_opportunity_discovery=false`, `messaging=false`, `purchasing=false`, `financial_actions=false`, plus `healthy|degraded|unavailable` retrieval state.
+Status reports explicit read-only capabilities. Details fail closed. Affiliate construction validates canonical seller/gig paths, is explicitly unverified, and cannot affect ranking.
 
-Details must fail closed; affiliate construction must validate `https://www.fiverr.com/...` and return `verified: false` unless current official parameter semantics are verified.
+- [x] **Step 4: Run full Fiverr suite to GREEN**
 
-- [ ] **Step 4: Run full Fiverr suite to GREEN**
-
-Run: `pytest -q connectors/fiverr/tests`
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-Commit message: `feat: add Fiverr capability and auxiliary tool boundaries`
+- [x] **Step 5: Commit**
 
 ### Task 4: Integrate docs and CI
 
@@ -165,34 +125,22 @@ Commit message: `feat: add Fiverr capability and auxiliary tool boundaries`
 **Interfaces:**
 - CI installs both connector dependency sets, runs both connector suites, compiles both Python servers, then preserves existing Node typecheck/smoke/build gates.
 
-- [ ] **Step 1: Update CI**
+- [x] **Step 1: Update CI**
 
-Install `connectors/fiverr/requirements.txt`, run `pytest -q connectors/fiverr/tests`, and compile the Fiverr module alongside existing Freelancer verification.
-
-- [ ] **Step 2: Document source classification**
+- [x] **Step 2: Document source classification**
 
 Document `buyer_opportunity` versus `service_listing`, explain that Fiverr seller listings are intelligence inputs and cannot directly create client WorkOrders, and state the fail-closed/no-Cloudflare-bypass boundary.
 
-- [ ] **Step 3: Run complete verification**
+- [x] **Step 3: Run complete verification during implementation**
 
-Run:
-`npm test`
-`pytest -q connectors/freelancer/tests connectors/fiverr/tests`
-`python -m py_compile connectors/freelancer/freelancer_mcp_server.py connectors/fiverr/fiverr_mcp_server.py`
-`npm run typecheck`
-`npm run smoke`
-`npm run build`
+Intermediate full CI passed before the final strict-URL/documentation tranche. Final exact-head CI is tracked in Task 5.
 
-Expected: all gates PASS.
-
-- [ ] **Step 4: Commit**
-
-Commit message: `ci: verify Fiverr marketplace adapter`
+- [x] **Step 4: Commit**
 
 ### Task 5: Exact-head review branch acceptance
 
-- [ ] Open a draft PR from `codex/fiverr-source-adapter` to `main` without merging (may already be open for CI-backed TDD).
-- [ ] Inspect exact PR head and GitHub Actions result.
-- [ ] If CI fails, diagnose the exact failing step, reproduce the root cause, patch with a regression test where code-related, and rerun until green or a genuine external blocker is identified.
+- [x] Open a draft PR from `codex/fiverr-source-adapter` to `main` without merging.
+- [ ] Inspect the final exact PR head and GitHub Actions result.
+- [ ] If final CI fails, diagnose the exact failing step, patch with a regression test where code-related, and rerun until green or a genuine external blocker is identified.
 - [ ] Confirm no synthetic listing path, marketplace write tool, Cloudflare bypass, secret persistence, affiliate-driven ranking behavior, deployment activation, or production-success claim was introduced.
 - [ ] Leave the PR draft and unmerged for review.
