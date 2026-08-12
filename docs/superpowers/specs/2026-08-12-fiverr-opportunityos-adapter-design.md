@@ -1,8 +1,8 @@
 # Fiverr.com → OpportunityOS Adapter Design
 
 **Date:** 2026-08-12  
-**Status:** Approved design; implementation not yet started  
-**Planned runtime:** `connectors/fiverr/fiverr_mcp_server.py`
+**Status:** Implemented on draft review branch; exact-head acceptance tracked in PR #7  
+**Runtime:** `connectors/fiverr/fiverr_mcp_server.py`
 
 ## Objective
 
@@ -68,25 +68,25 @@ The existing core evidence boundary remains authoritative. The only schema exten
 
 ## Canonical evidence extension
 
-`packages/core/src/source.ts` will add:
+`packages/core/src/source.ts` adds:
 
 ```ts
 export type MarketplaceRecordKind = 'buyer_opportunity' | 'service_listing';
 ```
 
-`MarketplaceOpportunityEvidence` will gain:
+`MarketplaceOpportunityEvidence` includes:
 
 ```ts
 record_kind: MarketplaceRecordKind;
 ```
 
-The Freelancer adapter will be updated to emit `record_kind: 'buyer_opportunity'`. The Fiverr adapter will emit `record_kind: 'service_listing'`.
+The Freelancer adapter emits `record_kind: 'buyer_opportunity'`. The Fiverr adapter emits `record_kind: 'service_listing'`.
 
 This is intentionally explicit rather than optional. A marketplace record without a known demand/supply classification must not cross the verified-source boundary.
 
 ## Fiverr normalized record
 
-Where the source actually provides the values, Fiverr records will normalize to the shared evidence model:
+Where the source actually provides the values, Fiverr records normalize to the shared evidence model:
 
 ```json
 {
@@ -145,14 +145,9 @@ If Fiverr blocks the request, changes markup so no trustworthy records can be pa
 
 ### `get_fiverr_listing_details(url)`
 
-This tool will exist only if the implementation can retrieve and verify real listing details from the supplied Fiverr URL without authenticated browser state or anti-bot circumvention.
+The implementation retrieves details only from a canonical two-segment Fiverr seller/listing URL and requires both a source-backed title and a matching canonical page marker before returning `verified: true`.
 
-If reliable detail retrieval cannot be demonstrated in tests, the existing stub behavior will not be preserved under a misleading success name. The implementation will either:
-
-- return an explicit `unavailable` or `unsupported` result; or
-- omit the tool until a real retrieval contract exists.
-
-It must never return `status: success` merely because a URL can be constructed or opened manually.
+If reliable detail evidence is absent, the tool returns an explicit `unavailable` or `unsupported` result. It never returns `status: success` merely because a URL can be constructed or opened manually.
 
 ### `generate_fiverr_affiliate_link(url, affiliate_id)`
 
@@ -160,15 +155,15 @@ Affiliate URL construction remains logically separate from marketplace evidence.
 
 Requirements:
 
-- strict URL validation;
+- strict canonical listing-URL validation;
 - no effect on record verification, ranking, fit, value, or OpportunityOS execution decisions;
 - no claim that an affiliate parameter format is officially valid unless that format is separately verified against current Fiverr documentation.
 
-If current official support cannot be verified during implementation, the tool must report the URL construction as unverified or be excluded from the canonical adapter.
+The current implementation marks the candidate format unverified and returns `affects_ranking: false`.
 
 ### `fiverr_connector_status()`
 
-Returns connector version, mode, retrieval state, parser state, and explicit capabilities without secrets.
+Returns connector version, mode, last-observed retrieval state, parser state, and explicit capabilities without secrets or an additional network request.
 
 Capabilities include:
 
@@ -182,18 +177,20 @@ Capabilities include:
 
 `buyer_opportunity_discovery`, `messaging`, `purchasing`, and `financial_actions` are false for this tranche.
 
-The health response distinguishes at least:
+The process-local health response distinguishes:
 
-- `healthy` — current parser/runtime contract is available;
-- `degraded` — connector is operational but source retrieval is currently blocked or not reliably parseable;
-- `unavailable` — connector cannot perform its advertised read function.
+- `healthy` — the last relevant public retrieval produced structurally verified source evidence;
+- `degraded` — no retrieval has yet been verified or the last retrieved source shape could not be verified by the parser;
+- `unavailable` — the last relevant public retrieval could not be completed, returned a non-success response, or was blocked by anti-bot verification.
+
+Parser state distinguishes `ready`, `source_shape_unverified`, `unverified_until_retrieval`, and a local runtime-error state when applicable. These values describe the connector process's last observation, not global Fiverr availability.
 
 ## Error handling
 
 The connector is fail-closed.
 
 - Network exception → `unavailable`, zero listings.
-- Cloudflare/anti-bot response → `unavailable` or `degraded`, zero listings.
+- Cloudflare/anti-bot response → `unavailable`, zero listings.
 - Non-success HTTP response → `unavailable`, zero listings.
 - Malformed/non-parseable body → `invalid_response`, zero listings.
 - Selector drift where candidate cards cannot be verified → `invalid_response`, zero listings.
@@ -205,7 +202,7 @@ Error payloads do not echo secrets, cookies, raw authentication material, or arb
 
 OpportunityOS must not equate all marketplace evidence with an executable opportunity.
 
-Downstream admission for autonomous task fulfillment must require:
+Downstream admission for autonomous task fulfillment requires:
 
 ```text
 record_kind == buyer_opportunity
@@ -219,7 +216,7 @@ This guardrail is part of the core source/evidence contract, not only the Fiverr
 
 ### Connector tests
 
-Tests will cover:
+Tests cover:
 
 - blank query rejection;
 - limit validation;
@@ -228,6 +225,7 @@ Tests will cover:
 - deterministic source-ID derivation;
 - canonical URL handling;
 - missing optional values preserved as null/empty;
+- symbol-only prices not inventing currency;
 - non-success response failure;
 - network failure;
 - Cloudflare/block-page detection;
@@ -235,35 +233,35 @@ Tests will cover:
 - selector-drift/no-verifiable-listings behavior;
 - no synthetic fallback path;
 - no fabricated price/currency/title values;
-- capability/health reporting;
+- canonical-marker requirement for detail verification;
+- dynamic capability/health/parser reporting;
 - no marketplace write tools;
 - no secret leakage;
 - actual MCP SDK v2 tool registration.
 
 ### Core tests
 
-Core tests will verify:
+Core tests verify:
 
 - `record_kind` is required;
 - only the approved enum values are accepted;
 - Freelancer records use `buyer_opportunity`;
 - Fiverr records use `service_listing`;
 - unverified records still cannot cross the evidence boundary;
-- a `service_listing` cannot satisfy any buyer-opportunity execution admission helper introduced by this tranche.
+- a `service_listing` cannot satisfy buyer-opportunity execution admission.
 
 ### CI
 
-The existing OpportunityOS CI remains authoritative and will run:
+The existing OpportunityOS CI remains authoritative and runs:
 
 1. Node behavioral tests;
-2. Fiverr connector pytest suite;
-3. existing Freelancer connector pytest suite;
-4. Python module compilation;
-5. TypeScript/workspace typecheck;
-6. smoke verification;
-7. complete workspace build.
+2. Freelancer connector pytest suite and Python compilation;
+3. Fiverr connector pytest suite and Python compilation;
+4. TypeScript/workspace typecheck;
+5. smoke verification;
+6. complete workspace build.
 
-No merge or deployment is part of this design phase.
+No merge or deployment is part of this tranche.
 
 ## Acceptance criteria
 
@@ -280,4 +278,4 @@ The Fiverr adapter is acceptable only when:
 - no marketplace write tools exist;
 - tests run against MCP Python SDK v2;
 - all existing OpportunityOS CI gates remain green;
-- the implementation stays on `codex/fiverr-source-adapter` as a review branch until exact-head acceptance is complete.
+- the implementation stays on `codex/fiverr-source-adapter` as a draft review branch until exact-head acceptance is complete.
