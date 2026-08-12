@@ -46,6 +46,11 @@ export default function Home() {
         </aside>
 
         <div className="workspace">
+          <div className="previewNotice" role="note">
+            <strong>Interface preview</strong>
+            <span>Synthetic pipeline counts and opportunity records are shown to review the presentation layer. Runtime configuration below is read from the current environment.</span>
+          </div>
+
           <div className="workspaceTop">
             <div><p className="eyebrow">Pipeline overview</p><h2>Decision compression, without hidden authority.</h2></div>
             <div className="modePill"><span>Execution mode</span><strong>{mode.toUpperCase()}</strong></div>
