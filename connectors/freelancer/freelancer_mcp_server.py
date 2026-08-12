@@ -123,6 +123,7 @@ def _normalize_project(project: dict, retrieved_at: str) -> dict | None:
     return {
         "platform": "freelancer",
         "platform_id": project_id,
+        "record_kind": "buyer_opportunity",
         "title": title,
         "description": _source_string(project.get("description")),
         "budget_min": _source_number(budget.get("minimum")) if isinstance(budget, dict) else None,
