@@ -9,3 +9,4 @@ export * from './factories.ts';
 export * from './verification.ts';
 export * from './economics.ts';
 export * from './orchestrator.ts';
+export * from './aggregator.ts';
