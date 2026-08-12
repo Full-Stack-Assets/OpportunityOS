@@ -17,6 +17,18 @@ logger = logging.getLogger("fiverr-mcp")
 CONNECTOR_VERSION = "1.0.0"
 FIVERR_SEARCH_URL = "https://www.fiverr.com/search/gigs"
 _ALLOWED_FIVERR_HOSTS = {"fiverr.com", "www.fiverr.com"}
+_RESERVED_FIRST_PATH_SEGMENTS = {
+    "search",
+    "categories",
+    "login",
+    "join",
+    "inbox",
+    "settings",
+    "support",
+    "users",
+    "business",
+    "pro",
+}
 _BLOCK_MARKERS = (
     "just a moment",
     "cloudflare",
@@ -81,6 +93,18 @@ def _canonical_fiverr_url(value: str) -> str | None:
     return urlunparse(("https", host, parsed.path.rstrip("/"), "", "", ""))
 
 
+def _canonical_listing_url(value: str) -> str | None:
+    canonical = _canonical_fiverr_url(value)
+    if canonical is None:
+        return None
+    path_segments = [segment for segment in urlparse(canonical).path.split("/") if segment]
+    if len(path_segments) != 2:
+        return None
+    if path_segments[0].lower() in _RESERVED_FIRST_PATH_SEGMENTS:
+        return None
+    return canonical
+
+
 def _is_block_page(text: str) -> bool:
     lowered = text.lower()
     return any(marker in lowered for marker in _BLOCK_MARKERS)
@@ -138,7 +162,7 @@ def _normalize_card(card, retrieved_at: str) -> dict | None:
     if not title or not isinstance(href, str):
         return None
     absolute = urljoin("https://www.fiverr.com", href)
-    canonical_url = _canonical_fiverr_url(absolute)
+    canonical_url = _canonical_listing_url(absolute)
     if canonical_url is None:
         return None
     budget_min, currency = _parse_price(card)
@@ -238,7 +262,7 @@ def search_fiverr_listings(query: str, limit: int = 5) -> str:
 
 
 def _validate_listing_url(url: str) -> str | None:
-    return _canonical_fiverr_url(url)
+    return _canonical_listing_url(url)
 
 
 @mcp.tool()
@@ -246,7 +270,7 @@ def get_fiverr_listing_details(url: str) -> str:
     """Retrieve a public Fiverr listing only when real source facts can be verified."""
     canonical_url = _validate_listing_url(url)
     if canonical_url is None:
-        return _error("url must be an https://www.fiverr.com listing URL")
+        return _error("url must be a canonical https://www.fiverr.com/<seller>/<gig> listing URL")
 
     try:
         response = requests.get(
@@ -312,7 +336,7 @@ def generate_fiverr_affiliate_link(url: str, affiliate_id: str) -> str:
     """Construct an explicitly unverified affiliate candidate URL isolated from ranking."""
     canonical_url = _validate_listing_url(url)
     if canonical_url is None:
-        return _error("url must be an https://www.fiverr.com listing URL")
+        return _error("url must be a canonical https://www.fiverr.com/<seller>/<gig> listing URL")
     if not isinstance(affiliate_id, str) or not affiliate_id.strip():
         return _error("affiliate_id must be a non-blank string")
 
