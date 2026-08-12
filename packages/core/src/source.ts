@@ -1,6 +1,9 @@
+export type MarketplaceRecordKind = 'buyer_opportunity' | 'service_listing';
+
 export interface MarketplaceOpportunityEvidence {
   platform: string;
   platform_id: string;
+  record_kind: MarketplaceRecordKind;
   title: string;
   description: string | null;
   budget_min: number | null;
@@ -51,6 +54,10 @@ export function assertVerifiedMarketplaceOpportunityEvidence(
 ): asserts value is VerifiedMarketplaceOpportunityEvidence {
   if (value.verified !== true) throw new TypeError('verified source evidence required');
 
+  if (value.record_kind !== 'buyer_opportunity' && value.record_kind !== 'service_listing') {
+    throw new TypeError('record_kind must be buyer_opportunity or service_listing');
+  }
+
   for (const [field, item] of [
     ['platform', value.platform],
     ['platform_id', value.platform_id],
@@ -86,6 +93,17 @@ export function assertVerifiedMarketplaceOpportunityEvidence(
 
   if (!Array.isArray(value.skills) || value.skills.some((skill) => typeof skill !== 'string' || skill.trim().length === 0)) {
     throw new TypeError('skills must contain only non-blank strings');
+  }
+}
+
+export function isBuyerOpportunityEvidence(
+  evidence: MarketplaceOpportunityEvidence,
+): evidence is VerifiedMarketplaceOpportunityEvidence {
+  try {
+    assertVerifiedMarketplaceOpportunityEvidence(evidence);
+    return evidence.record_kind === 'buyer_opportunity';
+  } catch {
+    return false;
   }
 }
 

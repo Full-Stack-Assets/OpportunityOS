@@ -26,6 +26,8 @@ jobs:
         run: npm install --ignore-scripts
       - name: Install Freelancer connector dependencies
         run: python -m pip install -r connectors/freelancer/requirements.txt
+      - name: Install Fiverr connector dependencies
+        run: python -m pip install -r connectors/fiverr/requirements.txt
       - name: Preserve generated dependency lock
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -39,6 +41,10 @@ jobs:
         run: |
           pytest -q connectors/freelancer/tests
           python -m py_compile connectors/freelancer/freelancer_mcp_server.py
+      - name: Fiverr connector tests
+        run: |
+          pytest -q connectors/fiverr/tests
+          python -m py_compile connectors/fiverr/fiverr_mcp_server.py
       - name: Typecheck workspace
         run: npm run typecheck
       - name: Smoke verification

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assertVerifiedMarketplaceOpportunityEvidence,
+  isBuyerOpportunityEvidence,
   marketplaceEvidenceId,
 } from '../src/source.ts';
 
@@ -9,6 +10,7 @@ function validEvidence(overrides = {}) {
   return {
     platform: 'freelancer',
     platform_id: '42',
+    record_kind: 'buyer_opportunity',
     title: 'Build a Python data pipeline',
     description: 'Need ETL automation',
     budget_min: 250,
@@ -66,4 +68,22 @@ test('source evidence rejects invalid scalar and skill types', () => {
     () => assertVerifiedMarketplaceOpportunityEvidence(validEvidence({ skills: ['Python', '  '] })),
     /skills must contain only non-blank strings/,
   );
+});
+
+test('record_kind is mandatory and limited to approved marketplace categories', () => {
+  assert.throws(
+    () => assertVerifiedMarketplaceOpportunityEvidence(validEvidence({ record_kind: undefined })),
+    /record_kind must be buyer_opportunity or service_listing/,
+  );
+  assert.throws(
+    () => assertVerifiedMarketplaceOpportunityEvidence(validEvidence({ record_kind: 'unknown' })),
+    /record_kind must be buyer_opportunity or service_listing/,
+  );
+  assert.doesNotThrow(() => assertVerifiedMarketplaceOpportunityEvidence(validEvidence({ record_kind: 'service_listing' })));
+});
+
+test('buyer-opportunity admission accepts only verified buyer demand', () => {
+  assert.equal(isBuyerOpportunityEvidence(validEvidence()), true);
+  assert.equal(isBuyerOpportunityEvidence(validEvidence({ record_kind: 'service_listing' })), false);
+  assert.equal(isBuyerOpportunityEvidence(validEvidence({ verified: false })), false);
 });
