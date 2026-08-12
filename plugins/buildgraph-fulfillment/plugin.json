@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "name": "buildgraph-fulfillment",
+  "displayName": "BuildGraph Fulfillment",
+  "description": "Fulfillment planning, execution readiness, verifier requirements, and repair routing without direct external writes.",
+  "mcpPath": "/mcp",
+  "allowedTools": [
+    "buildgraph_resolve_workflow",
+    "buildgraph_check_readiness",
+    "buildgraph_verify_completion"
+  ],
+  "authority": {
+    "readOnly": true,
+    "consequentialWrites": false,
+    "humanApprovalRequiredForWrites": true
+  },
+  "skills": [
+    "planning-fulfillment",
+    "executing-fulfillment",
+    "recovering-workflows",
+    "routing-human-approval"
+  ]
+}
