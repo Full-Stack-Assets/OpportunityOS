@@ -18,11 +18,11 @@ The connector targets MCP Python SDK v2 (`mcp>=2,<3`) and uses `mcp.server.MCPSe
 
 Searches Fiverr's public web surface with a bounded request timeout. A verified result requires an actually retrieved listing card with a non-blank title and a canonical Fiverr seller/gig URL.
 
-When a source listing ID is available it is preserved. Otherwise, the connector derives a deterministic SHA-256 identity from the canonical verified listing URL. Missing price or currency values remain `null`; they are never replaced with plausible defaults.
+When a source listing ID is available it is preserved. Otherwise, the connector derives `url_sha256:<SHA-256>` from the canonical verified listing URL. Missing price or currency values remain `null`; they are never replaced with plausible defaults. A numeric price may be retained without a currency, but currency is populated only when an explicit supported currency code is present in the retrieved listing content.
 
 ### `get_fiverr_listing_details(url)`
 
-Accepts only canonical `https://www.fiverr.com/<seller>/<gig>`-shaped listing URLs. It reports success only when public retrieval succeeds and a source-backed listing title can be verified. Blocked, malformed, non-success, or unsupported responses remain unverified.
+Accepts only canonical `https://www.fiverr.com/<seller>/<gig>`-shaped listing URLs. It reports success only when public retrieval succeeds, a source-backed listing title is present, and the returned page contains a matching canonical listing marker. Blocked, malformed, non-success, or unsupported responses remain unverified.
 
 ### `generate_fiverr_affiliate_link(url, affiliate_id)`
 
@@ -32,9 +32,11 @@ Affiliate logic is not marketplace evidence and cannot influence OpportunityOS f
 
 ### `fiverr_connector_status()`
 
-Reports connector version, mode, health posture, and explicit capabilities. `buyer_opportunity_discovery`, messaging, purchasing, and financial actions are false in this tranche.
+Reports connector version, mode, explicit capabilities, and the last-observed public retrieval/parser state without issuing a network request itself. `buyer_opportunity_discovery`, messaging, purchasing, and financial actions are false in this tranche.
 
-The default health posture is `degraded` because public-web retrieval can be blocked or changed independently of the connector.
+The connector starts `degraded` with parser state `unverified_until_retrieval`. A structurally verified retrieval moves health to `healthy` and parser state to `ready`; an unavailable or anti-bot-blocked retrieval moves health to `unavailable` while keeping the parser `ready`; an unrecognized Fiverr source shape moves health to `degraded` with parser state `source_shape_unverified`.
+
+This health state is process-local observational telemetry, not a claim that Fiverr public retrieval is globally available.
 
 ## Safety boundary
 
