@@ -125,11 +125,37 @@ def test_no_verifiable_cards_is_invalid_response(monkeypatch):
 def test_status_reports_lower_trust_read_only_capabilities():
     payload = json.loads(server.fiverr_connector_status())
     assert payload["mode"] == "read_only_service_listing_adapter"
+    assert payload["health"] in {"healthy", "degraded", "unavailable"}
+    assert isinstance(payload["parser_state"], str)
+    assert payload["parser_state"]
     assert payload["capabilities"]["listing_search"] is True
     assert payload["capabilities"]["buyer_opportunity_discovery"] is False
     assert payload["capabilities"]["messaging"] is False
     assert payload["capabilities"]["purchasing"] is False
     assert payload["capabilities"]["financial_actions"] is False
+
+
+def test_status_tracks_successful_and_blocked_search_state(monkeypatch):
+    monkeypatch.setattr(server.requests, "get", lambda *a, **k: _response(text=_listing_html()))
+    assert json.loads(server.search_fiverr_listings("python"))["status"] == "success"
+    healthy = json.loads(server.fiverr_connector_status())
+    assert healthy["health"] == "healthy"
+    assert healthy["parser_state"] == "ready"
+
+    blocked_html = '<html><title>Just a moment...</title><body>Cloudflare verification</body></html>'
+    monkeypatch.setattr(server.requests, "get", lambda *a, **k: _response(text=blocked_html))
+    assert json.loads(server.search_fiverr_listings("python"))["status"] == "unavailable"
+    unavailable = json.loads(server.fiverr_connector_status())
+    assert unavailable["health"] == "unavailable"
+    assert unavailable["parser_state"] == "ready"
+
+
+def test_status_marks_unverifiable_source_shape_degraded(monkeypatch):
+    monkeypatch.setattr(server.requests, "get", lambda *a, **k: _response(text="<html><body>ordinary page</body></html>"))
+    assert json.loads(server.search_fiverr_listings("python"))["status"] == "invalid_response"
+    degraded = json.loads(server.fiverr_connector_status())
+    assert degraded["health"] == "degraded"
+    assert degraded["parser_state"] == "source_shape_unverified"
 
 
 def test_listing_details_never_claim_success_without_retrieved_facts(monkeypatch):
