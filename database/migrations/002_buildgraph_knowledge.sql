@@ -35,6 +35,13 @@ create table if not exists knowledge_source_records (
   unique(system, source_native_id)
 );
 
+create table if not exists knowledge_source_content (
+  source_id text primary key references knowledge_source_records(id) on delete cascade,
+  content_text text not null,
+  content_hash text not null,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists knowledge_entity_sources (
   entity_id text not null references knowledge_entities(id) on delete cascade,
   source_id text not null references knowledge_source_records(id) on delete cascade,
@@ -84,6 +91,7 @@ create table if not exists knowledge_ingestion_receipts (
 create index if not exists knowledge_entities_normalized_name_idx on knowledge_entities(normalized_name);
 create index if not exists knowledge_alias_normalized_idx on knowledge_entity_aliases(normalized_alias);
 create index if not exists knowledge_sources_system_native_idx on knowledge_source_records(system, source_native_id);
+create index if not exists knowledge_source_content_fts_idx on knowledge_source_content using gin (to_tsvector('simple', content_text));
 create index if not exists knowledge_relationship_source_idx on knowledge_relationships(source_entity_id);
 create index if not exists knowledge_relationship_target_idx on knowledge_relationships(target_entity_id);
 create index if not exists knowledge_inbox_state_idx on knowledge_inbox(state);
