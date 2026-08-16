@@ -2,13 +2,108 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
   BUILDGRAPH_CAPABILITIES,
+  classifyKnowledgeDisposition,
+  createCanonicalEntity,
+  createSourceRecord,
+  ingestGitHubRepository,
   resolveCapabilityGraph,
+  resolveKnowledgeItem,
 } from '@opportunityos/core';
 import cors from 'cors';
 import express from 'express';
 import { z } from 'zod';
 
-const SERVER_VERSION = '0.1.0-simulation';
+const SERVER_VERSION = '0.2.0-simulation';
+
+const sourceSystemSchema = z.enum([
+  'github',
+  'google-drive',
+  'gmail',
+  'chat-history',
+  'uploaded-file',
+  'wisebase',
+  'external',
+]);
+
+const entityKindSchema = z.enum([
+  'project', 'product', 'repository', 'document', 'research', 'report', 'conversation', 'message',
+  'person', 'company', 'opportunity', 'decision', 'requirement', 'constraint', 'capability', 'component',
+  'skill', 'agent', 'automation', 'integration', 'dataset', 'deployment', 'issue', 'pull_request', 'commit',
+  'artifact', 'source', 'evidence',
+]);
+
+const entityStatusSchema = z.enum(['active', 'archived', 'superseded', 'draft']);
+const metadataSchema = z.record(z.string(), z.unknown());
+
+const sourceRefSchema = z.object({
+  system: sourceSystemSchema,
+  sourceNativeId: z.string().min(1),
+  url: z.string().url().optional(),
+});
+
+const sourceInputSchema = z.object({
+  system: sourceSystemSchema,
+  sourceNativeId: z.string().min(1).optional(),
+  title: z.string().min(1),
+  url: z.string().url().optional(),
+  observedAt: z.string().min(1),
+  contentHash: z.string().min(1).optional(),
+  metadata: metadataSchema.optional(),
+  projectHints: z.array(z.string().min(1)).optional(),
+});
+
+const entityInputSchema = z.object({
+  kind: entityKindSchema,
+  canonicalName: z.string().min(1),
+  aliases: z.array(z.string()).optional(),
+  status: entityStatusSchema,
+  sourceRefs: z.array(sourceRefSchema).optional(),
+  tags: z.array(z.string()).optional(),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+  metadata: metadataSchema.optional(),
+});
+
+const githubRepositorySchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  fullName: z.string().min(1),
+  url: z.string().url(),
+  visibility: z.string().min(1),
+  defaultBranch: z.string().min(1),
+  size: z.number().nonnegative(),
+  archived: z.boolean(),
+  searchIndexed: z.boolean().optional(),
+  observedAt: z.string().min(1),
+});
+
+function hydrateKnowledgeInputs(
+  sourceInput: z.infer<typeof sourceInputSchema>,
+  entityInputs: Array<z.infer<typeof entityInputSchema>>,
+) {
+  const source = createSourceRecord({
+    system: sourceInput.system,
+    title: sourceInput.title,
+    observedAt: sourceInput.observedAt,
+    metadata: sourceInput.metadata ?? {},
+    projectHints: sourceInput.projectHints ?? [],
+    ...(sourceInput.sourceNativeId ? { sourceNativeId: sourceInput.sourceNativeId } : {}),
+    ...(sourceInput.url ? { url: sourceInput.url } : {}),
+    ...(sourceInput.contentHash ? { contentHash: sourceInput.contentHash } : {}),
+  });
+  const entities = entityInputs.map((entity) => createCanonicalEntity({
+    kind: entity.kind,
+    canonicalName: entity.canonicalName,
+    aliases: entity.aliases ?? [],
+    status: entity.status,
+    sourceRefs: entity.sourceRefs ?? [],
+    tags: entity.tags ?? [],
+    createdAt: entity.createdAt,
+    updatedAt: entity.updatedAt,
+    ...(entity.metadata ? { metadata: entity.metadata } : {}),
+  }));
+  return { source, entities };
+}
 
 function createServer(): McpServer {
   const server = new McpServer({
@@ -174,6 +269,94 @@ function createServer(): McpServer {
         })
         .sort((a, b) => b.score - a.score);
       return toolResult({ ranked, note: 'Scores are prioritization heuristics, not realized revenue.' });
+    },
+  );
+
+  server.registerTool(
+    'buildgraph_ingest_github_repository',
+    {
+      title: 'Transform GitHub repository metadata into BuildGraph knowledge',
+      description: 'Use this to convert GitHub repository metadata into source-preserving repository, project, and relationship candidates for the unified knowledge layer. This is a pure transformation and performs no GitHub write.',
+      inputSchema: githubRepositorySchema.shape,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async (repo) => {
+      try {
+        const ingestion = ingestGitHubRepository({
+          id: repo.id,
+          name: repo.name,
+          fullName: repo.fullName,
+          url: repo.url,
+          visibility: repo.visibility,
+          defaultBranch: repo.defaultBranch,
+          size: repo.size,
+          archived: repo.archived,
+          observedAt: repo.observedAt,
+          ...(repo.searchIndexed === undefined ? {} : { searchIndexed: repo.searchIndexed }),
+        });
+        return toolResult({ ingestion });
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'buildgraph_resolve_knowledge_item',
+    {
+      title: 'Resolve a source item against canonical BuildGraph entities',
+      description: 'Use this to rank canonical entity matches for an incoming source item. Exact source identity outranks normalized aliases and fuzzy similarity; ambiguity is surfaced instead of silently merged.',
+      inputSchema: {
+        source: sourceInputSchema,
+        entities: z.array(entityInputSchema),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ source: sourceInput, entities: entityInputs }) => {
+      try {
+        const { source, entities } = hydrateKnowledgeInputs(sourceInput, entityInputs);
+        return toolResult({ source, resolution: resolveKnowledgeItem(source, entities) });
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'buildgraph_classify_knowledge_inbox',
+    {
+      title: 'Classify a BuildGraph Knowledge Inbox item',
+      description: 'Use this to decide whether an incoming source should LINK, UPDATE, CREATE_ENTITY, or REVIEW against the supplied canonical registry. Ambiguous evidence fails closed to REVIEW.',
+      inputSchema: {
+        source: sourceInputSchema,
+        entities: z.array(entityInputSchema),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ source: sourceInput, entities: entityInputs }) => {
+      try {
+        const { source, entities } = hydrateKnowledgeInputs(sourceInput, entityInputs);
+        const resolution = resolveKnowledgeItem(source, entities);
+        return toolResult({
+          source,
+          resolution,
+          disposition: classifyKnowledgeDisposition(source, resolution),
+        });
+      } catch (error) {
+        return toolError(error);
+      }
     },
   );
 

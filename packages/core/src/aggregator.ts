@@ -117,8 +117,6 @@ function canonicalCompare(a: IndexedEvidence, b: IndexedEvidence): number {
   const timeA = Date.parse(a.evidence.retrieved_at);
   const timeB = Date.parse(b.evidence.retrieved_at);
   if (timeA !== timeB) return timeB - timeA;
-  const urlOrder = a.evidence.source_url.localeCompare(b.evidence.source_url);
-  if (urlOrder !== 0) return urlOrder;
   return a.input_index - b.input_index;
 }
 
@@ -168,7 +166,7 @@ export function aggregateOpportunities(
   const verified: IndexedEvidence[] = [];
 
   for (let inputIndex = 0; inputIndex < evidence.length; inputIndex += 1) {
-    const record = evidence[inputIndex];
+    const record = evidence[inputIndex]!;
     try {
       assertVerifiedMarketplaceOpportunityEvidence(record);
       verified.push({ input_index: inputIndex, evidence_id: marketplaceEvidenceId(record), evidence: record });
@@ -194,7 +192,8 @@ export function aggregateOpportunities(
   const exactCanonical: IndexedEvidence[] = [];
   for (const [evidenceId, group] of exactGroups) {
     group.sort(canonicalCompare);
-    exactCanonical.push(group[0]);
+    const retained = group[0]!;
+    exactCanonical.push(retained);
     for (const duplicate of group.slice(1)) {
       duplicates.push({ duplicate_input_index: duplicate.input_index, retained_evidence_id: evidenceId, reason: 'exact_identity' });
     }
@@ -220,7 +219,7 @@ export function aggregateOpportunities(
   const canonicalBuyers: IndexedEvidence[] = [...buyersWithoutStage2Key];
   for (const group of sourceGroups.values()) {
     group.sort(canonicalCompare);
-    const retained = group[0];
+    const retained = group[0]!;
     canonicalBuyers.push(retained);
     for (const duplicate of group.slice(1)) {
       duplicates.push({ duplicate_input_index: duplicate.input_index, retained_evidence_id: retained.evidence_id, reason: 'source_equivalent' });
@@ -281,14 +280,15 @@ export function aggregateOpportunities(
   const rankCandidates = accepted
     .filter((item) => (scoringByEvidenceId.get(item.evidence_id) ?? []).length === 1)
     .map((item) => {
-      const scoring = scoringByEvidenceId.get(item.evidence_id)![0].value;
+      const scoring = scoringByEvidenceId.get(item.evidence_id)?.[0];
+      if (!scoring) throw new Error(`Missing unique scoring row for ${item.evidence_id}`);
       return {
         id: item.evidence_id,
-        capabilityFit: scoring.capabilityFit,
-        evidenceQuality: scoring.evidenceQuality,
-        expectedValueCents: scoring.expectedValueCents,
-        effortPoints: scoring.effortPoints,
-        deadlineUrgency: scoring.deadlineUrgency,
+        capabilityFit: scoring.value.capabilityFit,
+        evidenceQuality: scoring.value.evidenceQuality,
+        ...(scoring.value.expectedValueCents === undefined ? {} : { expectedValueCents: scoring.value.expectedValueCents }),
+        effortPoints: scoring.value.effortPoints,
+        deadlineUrgency: scoring.value.deadlineUrgency,
       };
     });
 
