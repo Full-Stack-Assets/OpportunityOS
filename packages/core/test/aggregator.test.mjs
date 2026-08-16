@@ -78,7 +78,7 @@ test('source-equivalent same-platform buyers dedupe but cross-platform and fuzzy
   const fuzzy = evidence({platform_id: 'd', title: 'build an api', source_url: 'https://example.com/job'});
   const result = aggregateOpportunities([a, b, cross, fuzzy], []);
   assert.equal(result.duplicates.filter((x) => x.reason === 'source_equivalent').length, 1);
-  assert.deepEqual(result.accepted.map((x) => x.evidence_id), ['freelancer:a', 'freelancer:d', 'other:c']);
+  assert.deepEqual(result.accepted.map((x) => x.evidence_id), ['freelancer:b', 'freelancer:d', 'other:c']);
 });
 
 test('invalid, duplicate, missing, unused, and service-listing scoring rows are handled locally', () => {

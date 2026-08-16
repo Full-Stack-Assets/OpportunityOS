@@ -11,10 +11,10 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test packages/core/test/*.test.mjs packages/postgres/test/*.test.mjs && node scripts/verify-buildgraph-plugins.mjs",
-    "typecheck": "npm run build:core && npm run typecheck:local && npm run typecheck --workspace @opportunityos/worker && npm run typecheck --workspace @opportunityos/control-plane && npm run typecheck --workspace @opportunityos/buildgraph-mcp",
+    "test": "npm run build:core && node --experimental-strip-types --test packages/core/test/*.test.mjs packages/postgres/test/*.test.mjs packages/public-demand-collectors/test/*.test.mjs && node scripts/verify-buildgraph-plugins.mjs",
+    "typecheck": "npm run build:core && npm run typecheck:local && npm run typecheck --workspace @opportunityos/public-demand-collectors && npm run typecheck --workspace @opportunityos/worker && npm run typecheck --workspace @opportunityos/control-plane && npm run typecheck --workspace @opportunityos/buildgraph-mcp",
     "build:core": "tsc -p packages/core/tsconfig.json",
-    "build": "npm run build:core && npm run build --workspace @opportunityos/postgres && npm run build --workspace @opportunityos/worker && npm run build --workspace @opportunityos/control-plane && npm run build --workspace @opportunityos/buildgraph-mcp",
+    "build": "npm run build:core && npm run build --workspace @opportunityos/postgres && npm run build --workspace @opportunityos/public-demand-collectors && npm run build --workspace @opportunityos/worker && npm run build --workspace @opportunityos/control-plane && npm run build --workspace @opportunityos/buildgraph-mcp",
     "dev": "npm run dev --workspace @opportunityos/control-plane",
     "dev:buildgraph": "npm run start --workspace @opportunityos/buildgraph-mcp",
     "smoke": "node --experimental-strip-types scripts/smoke.ts",
