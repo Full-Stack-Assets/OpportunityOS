@@ -31,3 +31,14 @@ test('$1.4M recoverable loss is preserved as economic exposure rather than budge
   assert.equal(result.amounts[0].minCents, 140_000_000);
   assert.deepEqual(result.amounts[0].evidenceRefs, ['source:1']);
 });
+
+test('ambiguous $1.4M annual impact remains OTHER_EXPOSURE instead of being discarded or promoted to budget', () => {
+  const result = core.extractObservedEconomicPain({
+    verificationState: 'VERIFIED',
+    facts: [fact('The annual impact is $1.4M.')],
+  });
+  assert.equal(result.amounts.length, 1);
+  assert.equal(result.amounts[0].kind, 'OTHER_EXPOSURE');
+  assert.equal(result.amounts[0].minCents, 140_000_000);
+  assert.equal(result.amounts[0].maxCents, 140_000_000);
+});
