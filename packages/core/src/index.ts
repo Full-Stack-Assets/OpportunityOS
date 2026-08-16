@@ -13,3 +13,5 @@ export * from './orchestrator.ts';
 export * from './aggregator.ts';
 export * from './acquisition.ts';
 export * from './public-demand.ts';
+export * from './demand-queries.ts';
+export * from './collector-receipts.ts';
