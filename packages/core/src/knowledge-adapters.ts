@@ -89,6 +89,35 @@ function sourceRef(system: KnowledgeSourceRef['system'], id: string, url?: strin
   return { system, sourceNativeId: id, ...(url ? { url } : {}) };
 }
 
+function isSensitiveMetadataKey(key: string): boolean {
+  const normalized = key
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_');
+
+  return /^(?:access_|refresh_|auth_)?token$/.test(normalized)
+    || /^(?:api_?key|secret|client_secret|password|passwd|authorization|cookie|cookies|credential|credentials)$/.test(normalized)
+    || /^raw_(?:binary|payload|bytes|content)$/.test(normalized)
+    || /(?:^|_)(?:access_token|refresh_token|api_key|client_secret)(?:_|$)/.test(normalized);
+}
+
+function sanitizeMetadataValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeMetadataValue);
+  if (typeof value !== 'object' || value === null) return value;
+
+  const output: Record<string, unknown> = {};
+  for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+    if (isSensitiveMetadataKey(key)) continue;
+    output[key] = sanitizeMetadataValue(nestedValue);
+  }
+  return output;
+}
+
+function sanitizeMetadata(metadata?: Record<string, unknown>): Record<string, unknown> {
+  return (sanitizeMetadataValue(metadata ?? {}) ?? {}) as Record<string, unknown>;
+}
+
 export function ingestDriveFile(input: DriveKnowledgeInput): KnowledgeAdapterResult {
   const id = assertText(input.id, 'Drive file id');
   const name = assertText(input.name, 'Drive file name');
@@ -96,7 +125,7 @@ export function ingestDriveFile(input: DriveKnowledgeInput): KnowledgeAdapterRes
   const metadata = {
     mimeType: input.mimeType,
     modifiedTime: input.modifiedTime,
-    ...(input.metadata ?? {}),
+    ...sanitizeMetadata(input.metadata),
   };
   const source = createSourceRecord({
     system: 'google-drive',
@@ -137,7 +166,7 @@ export function ingestConversation(input: ConversationKnowledgeInput): Knowledge
     contentHash: hashCanonical(input.messages.map((message) => ({ id: message.id, role: message.role, text: message.text, observedAt: message.observedAt }))),
     metadata: {
       messageCount: input.messages.length,
-      ...(input.metadata ?? {}),
+      ...sanitizeMetadata(input.metadata),
     },
     projectHints: input.projectHints ?? [],
   });
@@ -270,12 +299,13 @@ export function ingestWisebaseItem(input: WisebaseKnowledgeInput): KnowledgeAdap
   const id = assertText(input.id, 'Wisebase item id');
   const title = assertText(input.title, 'Wisebase item title');
   const contentHash = input.text === undefined ? undefined : hashCanonical(input.text);
+  const safeMetadata = sanitizeMetadata(input.metadata);
   const source = createSourceRecord({
     system: 'wisebase',
     sourceNativeId: id,
     title,
     observedAt: input.observedAt,
-    metadata: input.metadata ?? {},
+    metadata: safeMetadata,
     projectHints: input.projectHints ?? [],
     ...(input.url ? { url: input.url } : {}),
     ...(contentHash ? { contentHash } : {}),
@@ -290,7 +320,7 @@ export function ingestWisebaseItem(input: WisebaseKnowledgeInput): KnowledgeAdap
     createdAt: input.observedAt,
     updatedAt: input.observedAt,
     metadata: {
-      ...(input.metadata ?? {}),
+      ...safeMetadata,
       ...(contentHash ? { contentHash } : {}),
     },
   });
