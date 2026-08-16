@@ -16,3 +16,4 @@ export * from './public-demand.ts';
 export * from './demand-queries.ts';
 export * from './collector-receipts.ts';
 export * from './economic-pain.ts';
+export * from './commercial-buildgraph.ts';
