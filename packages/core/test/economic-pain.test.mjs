@@ -53,3 +53,10 @@ test('$500k-$1.4M budget range is one bounded observation', () => {
   assert.equal(result.amounts[0].minCents, 50_000_000);
   assert.equal(result.amounts[0].maxCents, 140_000_000);
 });
+
+test('unverified demand cannot create commercial economic amounts', () => {
+  assert.throws(() => core.extractObservedEconomicPain({
+    verificationState: 'UNVERIFIED',
+    facts: [fact('Approved software budget is $1.4M for this procurement.')],
+  }), /COMMERCIAL_SOURCE_NOT_VERIFIED/);
+});
