@@ -36,12 +36,12 @@ function toCents(raw: string, suffix: string | undefined): number {
   return Math.round(value * multiplier * 100);
 }
 
-function classifyObservedKind(statement: string): EconomicAmountKind | null {
+function classifyObservedKind(statement: string): EconomicAmountKind {
   if (/\brecoverable\b/i.test(statement) && /\b(loss|revenue|billing|payment)\b/i.test(statement)) {
     return 'RECOVERABLE_LOSS';
   }
   if (/\bbudget\b/i.test(statement)) return 'EXPLICIT_BUDGET';
-  return null;
+  return 'OTHER_EXPOSURE';
 }
 
 export function extractObservedEconomicPain(input: {
@@ -57,8 +57,8 @@ export function extractObservedEconomicPain(input: {
     const statement = fact.statement.trim();
     if (!statement || fact.evidenceRefs.length === 0) continue;
     const match = statement.match(MONEY_PATTERN);
+    if (!match || !match[1]) continue;
     const kind = classifyObservedKind(statement);
-    if (!match || !match[1] || kind === null) continue;
     const cents = toCents(match[1], match[2]);
     for (const ref of fact.evidenceRefs) evidenceRefs.add(ref);
     amounts.push({
@@ -68,7 +68,7 @@ export function extractObservedEconomicPain(input: {
       currency: 'USD',
       statement: fact.statement,
       evidenceRefs: [...fact.evidenceRefs],
-      confidence: 1,
+      confidence: kind === 'OTHER_EXPOSURE' ? 0.6 : 1,
       observedOnly: true,
     });
   }
