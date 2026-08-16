@@ -283,10 +283,9 @@ P0-Critical is mandatory investigation even when capability fit is weak. Capabil
 A non-critical opportunity may become `P0` when:
 
 - upstream public-demand ranking is `PRIORITY_0`, or
-- verified explicit budget >= $100,000 with credible buyer intent, or
-- expected net pursuit value is known and materially high under policy thresholds.
+- verified explicit budget is at least **$100,000 USD**, buyer intent is at least **0.70**, and credibility is at least **0.70**.
 
-v1 should prefer existing upstream `PRIORITY_0` behavior over introducing many new overlapping thresholds.
+No additional expected-net-value trigger is introduced in v1. This avoids creating a second overlapping scoring policy before the win-probability model is calibrated.
 
 ### 8.5 Criticality never authorizes action
 
