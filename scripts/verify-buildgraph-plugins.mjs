@@ -8,6 +8,9 @@ const registeredTools = new Set([
   'buildgraph_check_readiness',
   'buildgraph_verify_completion',
   'buildgraph_capability_gaps',
+  'buildgraph_ingest_github_repository',
+  'buildgraph_resolve_knowledge_item',
+  'buildgraph_classify_knowledge_inbox',
 ]);
 
 const pluginsRoot = new URL('../plugins/', import.meta.url);
