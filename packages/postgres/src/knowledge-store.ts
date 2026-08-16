@@ -109,7 +109,11 @@ function mapSourceRow(row: Record<string, unknown>): StoredKnowledgeSource {
 }
 
 export class PostgresKnowledgeStore {
-  constructor(private readonly db: SqlExecutor) {}
+  private readonly db: SqlExecutor;
+
+  constructor(db: SqlExecutor) {
+    this.db = db;
+  }
 
   async putEntity(entity: CanonicalKnowledgeEntity): Promise<void> {
     await this.db.query(
