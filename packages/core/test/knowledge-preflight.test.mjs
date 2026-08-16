@@ -37,6 +37,22 @@ test('strong ambiguous canonical matches fail closed to review', () => {
   assert.equal(result.allowCreateNew, false);
 });
 
+test('archived-only strong reuse evidence routes to review instead of active reuse', () => {
+  const result = compileKnowledgePreflight(
+    { name: 'Archived Prototype', description: 'similar capability', capabilities: ['automation'] },
+    {
+      available: true,
+      ambiguous: false,
+      results: [
+        { id: 'archived-1', kind: 'project', canonicalName: 'Archived Prototype', status: 'archived', combinedScore: 0.95, sourceIdentityScore: 0, reasons: ['exact-normalized-name'], sourceRefs: [{ system: 'github', sourceNativeId: 'archived-repo' }] },
+      ],
+    },
+  );
+  assert.equal(result.status, 'REVIEW');
+  assert.equal(result.allowCreateNew, false);
+  assert.deepEqual(result.archivedCandidates, ['archived-1']);
+});
+
 test('registry unavailable fails closed instead of allowing CREATE_NEW', () => {
   const result = compileKnowledgePreflight(
     { name: 'New Thing', description: 'new build', capabilities: [] },
