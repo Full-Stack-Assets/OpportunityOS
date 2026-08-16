@@ -129,7 +129,6 @@ function reuseEfficiency(match: CommercialCapabilityMatch): number | null {
 
 function topPortfolioScore(candidate: PublicDemandCandidate): number | null {
   const scores = candidate.portfolioMatches
-    .filter((match) => match.evidenceRefs.some((ref) => ref.trim().length > 0))
     .map((match) => match.score)
     .filter((score) => Number.isFinite(score) && score >= 0 && score <= 1);
   return scores.length === 0 ? null : Math.max(...scores);
@@ -282,7 +281,6 @@ export function buildCommercialInvestigation(input: CommercialInvestigationInput
     ...input.candidate.signal.facts.flatMap((fact) => fact.evidenceRefs),
     ...buildGraphMatch.evidenceRefs,
     ...eligibility.evidenceRefs,
-    ...input.candidate.portfolioMatches.flatMap((match) => match.evidenceRefs),
     ...revalidation.evidenceRefs,
   ]);
 
