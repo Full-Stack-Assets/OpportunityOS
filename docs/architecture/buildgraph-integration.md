@@ -35,6 +35,35 @@ Human approval, failure recovery, claim verification, and capability-gap learnin
 
 Dependency cycles are rejected rather than executed.
 
+## Unified knowledge layer v0.1
+
+`packages/core/src/buildgraph-knowledge.ts` extends BuildGraph from build-preflight and capability routing into a source-preserving canonical identity layer. It does not copy or replace external source systems; it models their objects as source records and resolves them against canonical entities.
+
+The v0.1 contracts include:
+
+- canonical entities with stable IDs, normalized names, aliases, lifecycle status, source references, metadata, tags, timestamps, and provenance hashes;
+- source records that preserve source system, source-native identity, URL, observation time, metadata, project hints, and provenance;
+- typed relationship candidates such as `BELONGS_TO`, `DEPENDS_ON`, `SUPERSEDES`, `DUPLICATES`, `REUSES`, and `SUPPORTED_BY`;
+- deterministic resolution where exact source-native identity outranks normalized names/aliases, which in turn outrank fuzzy name similarity;
+- Knowledge Inbox dispositions including `LINK`, `UPDATE`, `CREATE_ENTITY`, and fail-closed `REVIEW`, with the broader contract reserving `MERGE`, `SUPERSEDE`, and `ARCHIVE` for later governed workflows.
+
+Ambiguous strong matches are never silently merged. Fuzzy similarity alone cannot merge or supersede canonical knowledge.
+
+### GitHub-first ingestion
+
+`ingestGitHubRepository()` is the first source adapter. It converts repository metadata into:
+
+1. an immutable source record preserving GitHub repository ID and full name;
+2. a repository entity candidate;
+3. a project entity candidate;
+4. a `BELONGS_TO` relationship candidate;
+5. lifecycle state derived from GitHub archive state;
+6. a technical metadata fingerprint including visibility, default branch, size, and search-index state when supplied.
+
+Naming normalization intentionally identifies duplicate/renamed families as candidates without destructive auto-merge. Examples in the current estate include `VaporLoop` / `vapor-loop`, `moviesrule.com` / `-MoviesRule.com`, and `nextgengear` / `Nextgengear.cc`.
+
+This GitHub adapter is a pure transformation. It does not modify repositories, branches, issues, pull requests, settings, or deployments.
+
 ## ChatGPT skills
 
 Reusable ChatGPT/Codex instructions live under `skills/*/SKILL.md`. They are deliberately atomic so the runtime can load only the behaviors required by the resolved graph. Skill instructions cannot grant new permissions and remain subordinate to source-evidence, BuildGraph preflight, policy, approval, and verification controls.
@@ -43,7 +72,7 @@ Reusable ChatGPT/Codex instructions live under `skills/*/SKILL.md`. They are del
 
 `apps/buildgraph-mcp` is a tool-only MCP app intended for ChatGPT integration. It exposes a stateless Streamable HTTP endpoint at `/mcp` and a health endpoint at `/health`.
 
-The first tool tranche is read-only:
+The capability tranche is read-only:
 
 - `buildgraph_list_capabilities`
 - `buildgraph_resolve_workflow`
@@ -51,7 +80,15 @@ The first tool tranche is read-only:
 - `buildgraph_verify_completion`
 - `buildgraph_capability_gaps`
 
-No marketplace submission, client send, payment, deployment, publication, or other consequential write is exposed by this MCP app in the current tranche.
+The unified-knowledge tranche is also read-only:
+
+- `buildgraph_ingest_github_repository`
+- `buildgraph_resolve_knowledge_item`
+- `buildgraph_classify_knowledge_inbox`
+
+The knowledge tools perform deterministic in-memory transformation and classification only. They do not persist canonical records or mutate GitHub, Drive, Gmail, Wisebase, chat history, files, deployments, marketplaces, or any other external system.
+
+No marketplace submission, client send, payment, deployment, publication, repository mutation, or other consequential write is exposed by this MCP app in the current tranche.
 
 ## Workflow plugin profiles
 
@@ -73,6 +110,10 @@ OpportunityOS must not treat executor output as proof of completion. The BuildGr
 
 `buildgraph_verify_completion` checks the evidence requirements attached to the exact capability path. An external action is not considered delivered, deployed, published, submitted, or otherwise complete without the applicable execution receipt.
 
+The same evidence discipline applies to unified knowledge: an inferred relationship or fuzzy match is not equivalent to source evidence, and an inbox recommendation is not equivalent to a governed canonical mutation.
+
 ## Future authority work
 
-A later write-capable tranche may add external actions only after separate review. That tranche should payload-bind the selected reuse plan and consequential action into WorkOrder authorization so neither an executor nor a plugin can drift beyond the approved action.
+A later write-capable tranche may add persistence and external actions only after separate review. That tranche should payload-bind canonical mutations, selected reuse plans, and consequential actions into WorkOrder authorization so neither an executor nor a plugin can drift beyond the approved action.
+
+Future source adapters may cover Google Drive, Gmail, chat history, uploaded files, Wisebase, and other connected services using the same source-record and canonical-entity contracts.
