@@ -39,7 +39,7 @@ test('collector receipt hashing is deterministic and excludes no canonical field
 
 test('receipt hash changes when material discovery evidence changes', () => {
   const first = createCollectorReceipt(receiptInput());
-  const countChanged = createCollectorReceipt(receiptInput({signalsEmitted: 2}));
+  const countChanged = createCollectorReceipt(receiptInput({recordsVerified: 2, recordsRejected: 0, signalsEmitted: 2}));
   const queryChanged = createCollectorReceipt(receiptInput({queryFamilyId: 'EXPLICIT_DEVELOPER_HIRE'}));
   const healthChanged = createCollectorReceipt(receiptInput({healthAfter: 'DEGRADED'}));
   assert.notEqual(first.receiptHash, countChanged.receiptHash);
