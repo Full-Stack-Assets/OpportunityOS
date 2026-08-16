@@ -11,6 +11,7 @@ export interface KnowledgeAdapterResult {
   source: KnowledgeSourceRecord;
   entity: CanonicalKnowledgeEntity;
   children: CanonicalKnowledgeEntity[];
+  retrievalText?: string;
 }
 
 export interface DriveKnowledgeInput {
@@ -61,6 +62,7 @@ export interface GmailKnowledgeAdapterResult {
   relevance: GmailRelevanceResult;
   source?: KnowledgeSourceRecord;
   entity?: CanonicalKnowledgeEntity;
+  retrievalText?: string;
 }
 
 export interface GmailRelevanceResult {
@@ -121,7 +123,8 @@ function sanitizeMetadata(metadata?: Record<string, unknown>): Record<string, un
 export function ingestDriveFile(input: DriveKnowledgeInput): KnowledgeAdapterResult {
   const id = assertText(input.id, 'Drive file id');
   const name = assertText(input.name, 'Drive file name');
-  const contentHash = input.text === undefined ? undefined : hashCanonical(input.text);
+  const retrievalText = input.text?.trim();
+  const contentHash = retrievalText ? hashCanonical(retrievalText) : undefined;
   const metadata = {
     mimeType: input.mimeType,
     modifiedTime: input.modifiedTime,
@@ -152,12 +155,13 @@ export function ingestDriveFile(input: DriveKnowledgeInput): KnowledgeAdapterRes
       ...(contentHash ? { contentHash } : {}),
     },
   });
-  return { source, entity, children: [] };
+  return { source, entity, children: [], ...(retrievalText ? { retrievalText } : {}) };
 }
 
 export function ingestConversation(input: ConversationKnowledgeInput): KnowledgeAdapterResult {
   const id = assertText(input.id, 'Conversation id');
   const title = assertText(input.title, 'Conversation title');
+  const retrievalText = input.messages.map((message) => message.text.trim()).filter(Boolean).join('\n');
   const source = createSourceRecord({
     system: 'chat-history',
     sourceNativeId: id,
@@ -202,7 +206,7 @@ export function ingestConversation(input: ConversationKnowledgeInput): Knowledge
       },
     });
   });
-  return { source, entity, children };
+  return { source, entity, children, ...(retrievalText ? { retrievalText } : {}) };
 }
 
 const AUTOMATED_MARKERS = [
@@ -261,12 +265,14 @@ export function ingestGmailMessage(input: GmailKnowledgeInput): GmailKnowledgeAd
 
   const id = assertText(input.id, 'Gmail message id');
   const subject = assertText(input.subject, 'Gmail subject');
+  const body = input.body.trim();
+  const retrievalText = [subject, body].filter(Boolean).join('\n');
   const source = createSourceRecord({
     system: 'gmail',
     sourceNativeId: id,
     title: subject,
     observedAt: input.observedAt,
-    contentHash: hashCanonical({ subject, body: input.body }),
+    contentHash: hashCanonical({ subject, body }),
     metadata: {
       threadId: input.threadId,
       labels: input.labels,
@@ -292,13 +298,14 @@ export function ingestGmailMessage(input: GmailKnowledgeInput): GmailKnowledgeAd
       relevanceReasons: relevance.reasons,
     },
   });
-  return { persist: true, relevance, source, entity };
+  return { persist: true, relevance, source, entity, ...(retrievalText ? { retrievalText } : {}) };
 }
 
 export function ingestWisebaseItem(input: WisebaseKnowledgeInput): KnowledgeAdapterResult {
   const id = assertText(input.id, 'Wisebase item id');
   const title = assertText(input.title, 'Wisebase item title');
-  const contentHash = input.text === undefined ? undefined : hashCanonical(input.text);
+  const retrievalText = input.text?.trim();
+  const contentHash = retrievalText ? hashCanonical(retrievalText) : undefined;
   const safeMetadata = sanitizeMetadata(input.metadata);
   const source = createSourceRecord({
     system: 'wisebase',
@@ -324,5 +331,5 @@ export function ingestWisebaseItem(input: WisebaseKnowledgeInput): KnowledgeAdap
       ...(contentHash ? { contentHash } : {}),
     },
   });
-  return { source, entity, children: [] };
+  return { source, entity, children: [], ...(retrievalText ? { retrievalText } : {}) };
 }
