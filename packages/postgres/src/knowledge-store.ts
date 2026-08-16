@@ -2,7 +2,9 @@ import type {
   CanonicalKnowledgeEntity,
   KnowledgeDisposition,
   KnowledgeRelationshipCandidate,
+  KnowledgeRetrievalCandidate,
   KnowledgeSourceRecord,
+  KnowledgeSourceRef,
   KnowledgeSourceSystem,
 } from '@opportunityos/core';
 
@@ -82,6 +84,31 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
+function asNumberArray(value: unknown): number[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  if (!value.every((item) => typeof item === 'number' && Number.isFinite(item))) return undefined;
+  return value as number[];
+}
+
+function asSourceRefs(value: unknown): KnowledgeSourceRef[] {
+  if (!Array.isArray(value)) return [];
+  const refs: KnowledgeSourceRef[] = [];
+  for (const item of value) {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    const system = row.system;
+    const sourceNativeId = row.sourceNativeId ?? row.source_native_id;
+    const url = row.url;
+    if (typeof system !== 'string' || typeof sourceNativeId !== 'string' || !sourceNativeId) continue;
+    refs.push({
+      system: system as KnowledgeSourceSystem,
+      sourceNativeId,
+      ...(typeof url === 'string' && url ? { url } : {}),
+    });
+  }
+  return refs;
+}
+
 function mapEntityRow(row: Record<string, unknown>): StoredKnowledgeEntity {
   return {
     id: asString(row.id),
@@ -113,6 +140,22 @@ function mapSourceRow(row: Record<string, unknown>): StoredKnowledgeSource {
     metadata: asJsonObject(row.metadata),
     projectHints: asStringArray(row.project_hints),
     provenanceHash: asString(row.provenance_hash),
+  };
+}
+
+function mapRetrievalRow(row: Record<string, unknown>): KnowledgeRetrievalCandidate {
+  const embedding = asNumberArray(row.embedding);
+  return {
+    id: asString(row.id),
+    kind: asString(row.kind) as KnowledgeRetrievalCandidate['kind'],
+    canonicalName: asString(row.canonical_name),
+    status: asString(row.status) as KnowledgeRetrievalCandidate['status'],
+    normalizedName: asString(row.normalized_name),
+    aliases: asStringArray(row.aliases),
+    sourceRefs: asSourceRefs(row.source_refs),
+    text: asString(row.text_content),
+    relationships: asStringArray(row.relationships),
+    ...(embedding ? { embedding } : {}),
   };
 }
 
@@ -192,6 +235,20 @@ export class PostgresKnowledgeStore {
         JSON.stringify(source.projectHints),
         source.provenanceHash,
       ],
+    );
+  }
+
+  async putSourceContent(sourceId: string, contentText: string, contentHash: string): Promise<void> {
+    if (!sourceId.trim()) throw new TypeError('sourceId is required');
+    if (!contentHash.trim()) throw new TypeError('contentHash is required');
+    await this.db.query(
+      `insert into knowledge_source_content (source_id, content_text, content_hash, updated_at)
+       values ($1,$2,$3,now())
+       on conflict (source_id) do update set
+         content_text = excluded.content_text,
+         content_hash = excluded.content_hash,
+         updated_at = now()`,
+      [sourceId, contentText, contentHash],
     );
   }
 
@@ -313,5 +370,57 @@ export class PostgresKnowledgeStore {
       [normalized, `%${normalized}%`, limit],
     );
     return result.rows.map(mapEntityRow);
+  }
+
+  async searchRetrievalCandidates(query: string, limit = 50): Promise<KnowledgeRetrievalCandidate[]> {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+    if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new TypeError('limit must be an integer between 1 and 200');
+    const normalized = normalizeRegistryKey(trimmed);
+    const likePattern = normalized ? `%${normalized}%` : '%';
+    const result = await this.db.query<Record<string, unknown>>(
+      `select
+         e.id,
+         e.kind,
+         e.canonical_name,
+         e.normalized_name,
+         e.status,
+         coalesce(array_agg(distinct a.alias) filter (where a.alias is not null), '{}'::text[]) as aliases,
+         coalesce(
+           jsonb_agg(distinct jsonb_build_object(
+             'system', s.system,
+             'sourceNativeId', s.source_native_id,
+             'url', s.url
+           )) filter (where s.id is not null and s.source_native_id is not null),
+           '[]'::jsonb
+         ) as source_refs,
+         coalesce(string_agg(distinct c.content_text, E'\n'), '') as text_content,
+         coalesce(
+           array_agg(distinct case
+             when r.source_entity_id = e.id then r.target_entity_id
+             else r.source_entity_id
+           end) filter (where r.id is not null),
+           '{}'::text[]
+         ) as relationships,
+         emb.vector as embedding
+       from knowledge_entities e
+       left join knowledge_entity_aliases a on a.entity_id = e.id
+       left join knowledge_entity_sources es on es.entity_id = e.id
+       left join knowledge_source_records s on s.id = es.source_id
+       left join knowledge_source_content c on c.source_id = s.id
+       left join knowledge_relationships r on r.source_entity_id = e.id or r.target_entity_id = e.id
+       left join knowledge_embeddings emb on emb.entity_id = e.id
+       where e.normalized_name = $2
+          or a.normalized_alias = $2
+          or e.normalized_name like $3
+          or a.normalized_alias like $3
+          or s.normalized_title like $3
+          or to_tsvector('simple', coalesce(c.content_text, '')) @@ plainto_tsquery('simple', $1)
+       group by e.id, e.kind, e.canonical_name, e.normalized_name, e.status, emb.vector
+       order by (e.normalized_name = $2) desc, e.canonical_name, e.id
+       limit $4`,
+      [trimmed, normalized, likePattern, limit],
+    );
+    return result.rows.map(mapRetrievalRow);
   }
 }
