@@ -117,8 +117,6 @@ function canonicalCompare(a: IndexedEvidence, b: IndexedEvidence): number {
   const timeA = Date.parse(a.evidence.retrieved_at);
   const timeB = Date.parse(b.evidence.retrieved_at);
   if (timeA !== timeB) return timeB - timeA;
-  const urlOrder = a.evidence.source_url.localeCompare(b.evidence.source_url);
-  if (urlOrder !== 0) return urlOrder;
   return a.input_index - b.input_index;
 }
 
