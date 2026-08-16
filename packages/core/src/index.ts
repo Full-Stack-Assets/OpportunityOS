@@ -21,3 +21,4 @@ export * from './commercial-eligibility.ts';
 export * from './commercial-value.ts';
 export * from './commercial-winability.ts';
 export * from './commercial-priority.ts';
+export * from './opportunity-revalidation.ts';
