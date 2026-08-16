@@ -9,7 +9,7 @@ import {
   scoreGmailKnowledgeRelevance,
 } from '../src/index.ts';
 
-test('Drive adapter preserves native file identity and content hash without raw binary payloads', () => {
+test('Drive adapter preserves native file identity and content hash without raw or secret payloads', () => {
   const result = ingestDriveFile({
     id: 'drive-1',
     name: 'OpportunityOS Architecture',
@@ -18,12 +18,21 @@ test('Drive adapter preserves native file identity and content hash without raw 
     url: 'https://drive.google.com/file/d/drive-1',
     text: 'BuildGraph preflight architecture',
     projectHints: ['OpportunityOS'],
-    metadata: { owners: ['owner@example.com'] },
+    metadata: {
+      owners: ['owner@example.com'],
+      rawBinary: 'must-not-persist',
+      access_token: 'must-not-persist',
+      Authorization: 'Bearer must-not-persist',
+      nested: { apiKey: 'must-not-persist', safeField: 'safe' },
+    },
   });
   assert.equal(result.source.system, 'google-drive');
   assert.equal(result.source.sourceNativeId, 'drive-1');
   assert.ok(result.source.contentHash);
   assert.equal(Object.hasOwn(result.source.metadata, 'rawBinary'), false);
+  assert.equal(Object.hasOwn(result.source.metadata, 'access_token'), false);
+  assert.equal(Object.hasOwn(result.source.metadata, 'Authorization'), false);
+  assert.deepEqual(result.source.metadata.nested, { safeField: 'safe' });
   assert.equal(result.entity.kind, 'document');
 });
 
@@ -75,16 +84,18 @@ test('Gmail adapter refuses to persist a low-relevance message as canonical know
   assert.equal(result.source, undefined);
 });
 
-test('Wisebase adapter preserves native item identity as a source system', () => {
+test('Wisebase adapter preserves native item identity and removes secret metadata', () => {
   const result = ingestWisebaseItem({
     id: 'wise-1',
     title: 'BuildGraph Decisions',
     observedAt: '2026-08-16T14:00:00.000Z',
     text: 'Persistent registry is canonical.',
     projectHints: ['BuildGraph'],
-    metadata: { collection: 'architecture' },
+    metadata: { collection: 'architecture', refreshToken: 'must-not-persist' },
   });
   assert.equal(result.source.system, 'wisebase');
   assert.equal(result.source.sourceNativeId, 'wise-1');
   assert.equal(result.entity.kind, 'document');
+  assert.equal(result.source.metadata.collection, 'architecture');
+  assert.equal(Object.hasOwn(result.source.metadata, 'refreshToken'), false);
 });
