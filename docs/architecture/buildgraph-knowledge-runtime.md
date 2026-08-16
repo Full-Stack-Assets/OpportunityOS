@@ -18,6 +18,8 @@ The only persistent write target is the private PostgreSQL BuildGraph registry. 
 
 Private source content must never be committed to the public OpportunityOS repository. Repository fixtures contain only sanitized metadata.
 
+Canonical metadata and searchable private content are deliberately separated. `knowledge_source_records` holds source identity, hashes, sanitized metadata, and provenance; `knowledge_source_content` holds retrieval text inside the private runtime database. Credentials, tokens, cookies, raw binary payloads, and other sensitive metadata are scrubbed before persistence.
+
 ## Connector mapping
 
 ### GitHub
@@ -47,10 +49,10 @@ Drive search/fetch results map to `DriveKnowledgeInput`:
 - MIME type -> metadata
 - modified/observed time -> `modifiedTime`
 - Drive URL -> source URL
-- retrieved text -> content hash and private retrieval content
+- retrieved text -> content hash plus separate private `retrievalText`
 - project/file hints -> `projectHints`
 
-Binary file bytes are not stored in canonical entities. Text required for retrieval belongs in the private runtime store only.
+Binary file bytes are not stored in canonical entities. Text required for retrieval is stored only in `knowledge_source_content` in the private registry.
 
 ### Chat/library source
 
@@ -62,6 +64,7 @@ The chat adapter is vendor-neutral. The runtime maps any available conversation 
 - ordered messages with stable message IDs
 - role
 - message content hash
+- combined private retrieval text
 - project hints
 
 A chat message cannot become a canonical project solely because of fuzzy text similarity.
@@ -70,7 +73,7 @@ A chat message cannot become a canonical project solely because of fuzzy text si
 
 The runtime uses Gmail read/search functions only. Message ID and thread ID remain authoritative source-native identifiers.
 
-Before persistence, `scoreGmailKnowledgeRelevance()` applies deterministic relevance evidence. Messages below the persistence threshold are skipped and counted in the ingestion receipt.
+Before persistence, `scoreGmailKnowledgeRelevance()` applies deterministic relevance evidence. Messages below the persistence threshold are skipped and counted in the ingestion receipt. For accepted messages, subject/body retrieval text remains separate from canonical metadata.
 
 No send, draft, label, archive, trash, or delete action is part of knowledge ingestion.
 
@@ -80,10 +83,10 @@ Wisebase retrieval is treated as a source-system read. Retrieved items/passages 
 
 - source-native item/document identity where available
 - title/source name
-- retrieved text hash
+- retrieved text hash and separate retrieval text
 - observed time
 - source URL where available
-- collection/source metadata
+- sanitized collection/source metadata
 - project hints
 
 Wisebase remains a semantic retrieval surface; PostgreSQL remains the canonical registry. v0.2 does not push canonical records back into Wisebase.
@@ -94,10 +97,12 @@ For each accepted source object:
 
 ```text
 READ SOURCE
-  -> NORMALIZE SOURCE RECORD
+  -> NORMALIZE + SCRUB SOURCE RECORD
+  -> SEPARATE PRIVATE RETRIEVAL TEXT
   -> RESOLVE CANONICAL ENTITY
   -> CLASSIFY INBOX DISPOSITION
   -> UPSERT SOURCE RECORD
+  -> UPSERT PRIVATE SOURCE CONTENT WHEN PRESENT
   -> UPSERT/LINK CANONICAL ENTITY WHEN DETERMINISTICALLY SAFE
   -> PERSIST RELATIONSHIPS
   -> PERSIST REVIEW ITEM FOR AMBIGUITY
@@ -125,13 +130,14 @@ This order creates strong project/repository identities before noisier document/
 Re-reading an unchanged source object:
 
 - updates `last_seen_at`;
-- may update current metadata/provenance hash;
+- may update current sanitized metadata/provenance hash;
+- upserts retrieval text by source ID rather than duplicating it;
 - does not create another canonical entity solely because the source was seen again;
 - does not duplicate aliases, entity-source links, relationships, or receipts with the same deterministic identity.
 
 ## Retrieval
 
-Cross-source retrieval ranks evidence using separate components:
+`PostgresKnowledgeStore.searchRetrievalCandidates()` retrieves candidate entities with aliases, source references, private text, graph relationships, and optional embeddings. `rankKnowledgeResults()` then ranks those candidates with separate evidence components:
 
 - exact source identity
 - canonical/alias name evidence
@@ -139,7 +145,7 @@ Cross-source retrieval ranks evidence using separate components:
 - graph relationship evidence
 - optional provider-neutral embedding similarity
 
-Exact source identity receives a dominance score and cannot be displaced by a semantically similar but source-unrelated item.
+PostgreSQL full-text search uses the isolated `knowledge_source_content` table. Exact source identity receives a dominance score and cannot be displaced by a semantically similar but source-unrelated item.
 
 ## Automatic preflight
 
@@ -149,7 +155,8 @@ Fail-closed rules:
 
 - registry unavailable -> `BUILDGRAPH_KNOWLEDGE_UNAVAILABLE`
 - strong ambiguity -> `REVIEW`
-- strong reusable project/repository/component/capability evidence -> `REUSE_EVIDENCE_FOUND`
+- strong archived/superseded-only evidence -> `REVIEW`
+- strong active reusable project/repository/component/capability evidence -> `REUSE_EVIDENCE_FOUND`
 - only verified absence of reusable evidence -> `NO_REUSE_EVIDENCE`, allowing existing BuildGraph policy to consider `CREATE_NEW`
 
 This knowledge gate supplements rather than replaces the existing BuildGraph preflight and Trust Kernel.
@@ -164,9 +171,11 @@ A runtime synchronization may be called successful only when all applicable chec
 4. attempted/persisted/review/failure counts are recorded;
 5. rerunning the same input is idempotent;
 6. private source content is absent from repository commits/logs;
-7. retrieval returns source evidence for known canonical projects;
-8. ambiguous duplicate families land in `knowledge_inbox`;
-9. automatic preflight blocks a known duplicate/reuse case;
-10. automatic preflight fails closed when the registry is unavailable.
+7. secret/raw metadata is absent from canonical source records;
+8. `knowledge_source_content` contains only approved retrieval text tied to source IDs;
+9. retrieval returns source evidence for known canonical projects;
+10. ambiguous or historical-only duplicate families route to review;
+11. automatic preflight blocks a known duplicate/reuse case;
+12. automatic preflight fails closed when the registry is unavailable.
 
 Repository CI can verify code contracts, but it cannot prove a private source synchronization occurred. Runtime success must never be inferred from unit tests alone.
