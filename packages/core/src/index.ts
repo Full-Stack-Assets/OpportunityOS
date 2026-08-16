@@ -17,3 +17,4 @@ export * from './demand-queries.ts';
 export * from './collector-receipts.ts';
 export * from './economic-pain.ts';
 export * from './commercial-buildgraph.ts';
+export * from './commercial-eligibility.ts';
