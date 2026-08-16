@@ -36,6 +36,14 @@ function toCents(raw: string, suffix: string | undefined): number {
   return Math.round(value * multiplier * 100);
 }
 
+function classifyObservedKind(statement: string): EconomicAmountKind | null {
+  if (/\brecoverable\b/i.test(statement) && /\b(loss|revenue|billing|payment)\b/i.test(statement)) {
+    return 'RECOVERABLE_LOSS';
+  }
+  if (/\bbudget\b/i.test(statement)) return 'EXPLICIT_BUDGET';
+  return null;
+}
+
 export function extractObservedEconomicPain(input: {
   facts: DemandFact[];
   verificationState: VerificationState;
@@ -49,11 +57,12 @@ export function extractObservedEconomicPain(input: {
     const statement = fact.statement.trim();
     if (!statement || fact.evidenceRefs.length === 0) continue;
     const match = statement.match(MONEY_PATTERN);
-    if (!match || !match[1] || !/\bbudget\b/i.test(statement)) continue;
+    const kind = classifyObservedKind(statement);
+    if (!match || !match[1] || kind === null) continue;
     const cents = toCents(match[1], match[2]);
     for (const ref of fact.evidenceRefs) evidenceRefs.add(ref);
     amounts.push({
-      kind: 'EXPLICIT_BUDGET',
+      kind,
       minCents: cents,
       maxCents: cents,
       currency: 'USD',
