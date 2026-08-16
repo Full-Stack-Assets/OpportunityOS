@@ -9,7 +9,7 @@ import {
   scoreGmailKnowledgeRelevance,
 } from '../src/index.ts';
 
-test('Drive adapter preserves native file identity and content hash without raw or secret payloads', () => {
+test('Drive adapter preserves native file identity and separates retrieval text from metadata', () => {
   const result = ingestDriveFile({
     id: 'drive-1',
     name: 'OpportunityOS Architecture',
@@ -29,14 +29,16 @@ test('Drive adapter preserves native file identity and content hash without raw 
   assert.equal(result.source.system, 'google-drive');
   assert.equal(result.source.sourceNativeId, 'drive-1');
   assert.ok(result.source.contentHash);
+  assert.equal(result.retrievalText, 'BuildGraph preflight architecture');
   assert.equal(Object.hasOwn(result.source.metadata, 'rawBinary'), false);
   assert.equal(Object.hasOwn(result.source.metadata, 'access_token'), false);
   assert.equal(Object.hasOwn(result.source.metadata, 'Authorization'), false);
   assert.deepEqual(result.source.metadata.nested, { safeField: 'safe' });
+  assert.equal(JSON.stringify(result.source.metadata).includes('BuildGraph preflight architecture'), false);
   assert.equal(result.entity.kind, 'document');
 });
 
-test('conversation adapter preserves conversation identity and message ordering', () => {
+test('conversation adapter preserves conversation identity, ordering, and retrieval text', () => {
   const result = ingestConversation({
     id: 'chat-1',
     title: 'BuildGraph planning',
@@ -50,6 +52,7 @@ test('conversation adapter preserves conversation identity and message ordering'
   assert.equal(result.source.system, 'chat-history');
   assert.equal(result.entity.kind, 'conversation');
   assert.deepEqual(result.children.map((item) => item.metadata?.order), [0, 1]);
+  assert.equal(result.retrievalText, 'Build a persistent registry\nUse Postgres');
 });
 
 test('Gmail relevance includes project/client work and excludes automated promotions', () => {
@@ -70,6 +73,22 @@ test('Gmail relevance includes project/client work and excludes automated promot
   assert.equal(promo.persist, false);
 });
 
+test('Gmail adapter keeps relevant message retrieval text outside canonical metadata', () => {
+  const result = ingestGmailMessage({
+    id: 'mail-relevant',
+    threadId: 'thread-relevant',
+    subject: 'OpportunityOS client proposal',
+    body: 'Please review the contract and deployment plan for OpportunityOS.',
+    observedAt: '2026-08-16T14:00:00.000Z',
+    labels: ['INBOX'],
+    projectAliases: ['OpportunityOS'],
+  });
+  assert.equal(result.persist, true);
+  assert.ok(result.source);
+  assert.equal(result.retrievalText, 'OpportunityOS client proposal\nPlease review the contract and deployment plan for OpportunityOS.');
+  assert.equal(JSON.stringify(result.source?.metadata).includes('Please review the contract'), false);
+});
+
 test('Gmail adapter refuses to persist a low-relevance message as canonical knowledge', () => {
   const result = ingestGmailMessage({
     id: 'mail-1',
@@ -82,9 +101,10 @@ test('Gmail adapter refuses to persist a low-relevance message as canonical know
   });
   assert.equal(result.persist, false);
   assert.equal(result.source, undefined);
+  assert.equal(result.retrievalText, undefined);
 });
 
-test('Wisebase adapter preserves native item identity and removes secret metadata', () => {
+test('Wisebase adapter preserves native item identity, scrubs secrets, and separates retrieval text', () => {
   const result = ingestWisebaseItem({
     id: 'wise-1',
     title: 'BuildGraph Decisions',
@@ -98,4 +118,5 @@ test('Wisebase adapter preserves native item identity and removes secret metadat
   assert.equal(result.entity.kind, 'document');
   assert.equal(result.source.metadata.collection, 'architecture');
   assert.equal(Object.hasOwn(result.source.metadata, 'refreshToken'), false);
+  assert.equal(result.retrievalText, 'Persistent registry is canonical.');
 });
