@@ -19,3 +19,15 @@ test('$1.4M budget is preserved as explicit verified budget evidence', () => {
   assert.equal(result.amounts[0].statement, 'Approved software budget is $1.4M for this procurement.');
   assert.equal(result.amounts[0].observedOnly, true);
 });
+
+test('$1.4M recoverable loss is preserved as economic exposure rather than budget', () => {
+  const result = core.extractObservedEconomicPain({
+    verificationState: 'VERIFIED',
+    facts: [fact('We have $1.4M of recoverable billing loss caused by the current workflow.')],
+  });
+  assert.equal(result.amounts.length, 1);
+  assert.equal(result.amounts[0].kind, 'RECOVERABLE_LOSS');
+  assert.equal(result.amounts[0].maxCents, 140_000_000);
+  assert.equal(result.amounts[0].minCents, 140_000_000);
+  assert.deepEqual(result.amounts[0].evidenceRefs, ['source:1']);
+});
