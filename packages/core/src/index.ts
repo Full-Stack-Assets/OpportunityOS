@@ -19,3 +19,4 @@ export * from './economic-pain.ts';
 export * from './commercial-buildgraph.ts';
 export * from './commercial-eligibility.ts';
 export * from './commercial-value.ts';
+export * from './commercial-winability.ts';
