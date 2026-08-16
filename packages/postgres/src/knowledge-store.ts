@@ -1,10 +1,9 @@
-import {
-  normalizeEntityName,
-  type CanonicalKnowledgeEntity,
-  type KnowledgeDisposition,
-  type KnowledgeRelationshipCandidate,
-  type KnowledgeSourceRecord,
-  type KnowledgeSourceSystem,
+import type {
+  CanonicalKnowledgeEntity,
+  KnowledgeDisposition,
+  KnowledgeRelationshipCandidate,
+  KnowledgeSourceRecord,
+  KnowledgeSourceSystem,
 } from '@opportunityos/core';
 
 import type { SqlExecutor } from './store.ts';
@@ -58,6 +57,15 @@ export interface StoredKnowledgeSource {
   metadata: Record<string, unknown>;
   projectHints: string[];
   provenanceHash: string;
+}
+
+const REPOSITORY_SUFFIXES = new Set(['app', 'cc', 'com', 'dev', 'io', 'net', 'online', 'org', 'site', 'space']);
+
+function normalizeRegistryKey(value: string): string {
+  const spaced = value.trim().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+  const tokens = spaced.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+  if (tokens.length > 1 && REPOSITORY_SUFFIXES.has(tokens[tokens.length - 1] ?? '')) tokens.pop();
+  return tokens.join('');
 }
 
 function asString(value: unknown): string {
@@ -145,7 +153,7 @@ export class PostgresKnowledgeStore {
     );
 
     for (const alias of entity.aliases) {
-      const normalizedAlias = normalizeEntityName(alias);
+      const normalizedAlias = normalizeRegistryKey(alias);
       if (!normalizedAlias) continue;
       await this.db.query(
         `insert into knowledge_entity_aliases (entity_id, alias, normalized_alias)
@@ -289,7 +297,7 @@ export class PostgresKnowledgeStore {
 
   async searchRegistry(query: string, limit = 20): Promise<StoredKnowledgeEntity[]> {
     if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new TypeError('limit must be an integer between 1 and 200');
-    const normalized = normalizeEntityName(query);
+    const normalized = normalizeRegistryKey(query);
     if (!normalized) return [];
     const result = await this.db.query<Record<string, unknown>>(
       `select distinct e.id, e.kind, e.canonical_name, e.normalized_name, e.status, e.tags, e.metadata,
