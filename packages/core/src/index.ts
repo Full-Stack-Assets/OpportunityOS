@@ -22,3 +22,4 @@ export * from './commercial-value.ts';
 export * from './commercial-winability.ts';
 export * from './commercial-priority.ts';
 export * from './opportunity-revalidation.ts';
+export * from './critical-investigation.ts';
