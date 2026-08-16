@@ -56,6 +56,7 @@ Add the following under `packages/core/src/`:
 - `commercial-value.ts`
 - `commercial-priority.ts`
 - `commercial-buildgraph.ts`
+- `commercial-eligibility.ts`
 - `commercial-winability.ts`
 - `opportunity-revalidation.ts`
 - `critical-investigation.ts`
@@ -263,11 +264,12 @@ type CriticalReason = 'BUDGET' | 'RECOVERABLE_LOSS';
 Before any P0-Critical rule is evaluated:
 
 - demand must be `VERIFIED`
-- demand must not already be invalidated
 - credibility screen must not hard-reject
 - no known hard legal/eligibility disqualifier may make pursuit impossible
 
-Failure of the hard validity gate returns `REJECT` or `REVALIDATION_REQUIRED` rather than P0-Critical.
+Failure of the hard validity gate returns `REJECT`.
+
+Freshness and aging are evaluated separately by the revalidation engine. A stale opportunity may retain its underlying P0/P0-Critical classification while being blocked from `READY_FOR_HUMAN_REVIEW` until evidence is refreshed.
 
 ### 8.3 P0-Critical rules
 
@@ -345,7 +347,7 @@ type RevalidationState =
 - Caller supplies `now`; core never reads wall-clock time implicitly.
 - Content fingerprint change requires full re-analysis.
 - Source deletion/closure/cancellation may invalidate the opportunity.
-- A stale P0/P0-Critical opportunity cannot become `APPROVAL_READY` until revalidated.
+- A stale P0/P0-Critical opportunity cannot become `READY_FOR_HUMAN_REVIEW` until revalidated.
 - Revalidation must add evidence; merely updating a timestamp is insufficient.
 
 ## 11. Critical Investigation Packet
