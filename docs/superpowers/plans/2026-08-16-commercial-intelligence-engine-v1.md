@@ -4,7 +4,7 @@
 
 **Goal:** Convert verified public-demand candidates into evidence-bound commercial investigation packets with structured economic pain, verified BuildGraph capability proof, defensible value estimates, P0/P0-Critical classification, winability, revalidation, and approval-readiness while never authorizing external outreach.
 
-**Architecture:** Add focused deterministic modules under `packages/core/src/` and keep network access outside core. The assembler consumes `PublicDemandCandidate`, verified BuildGraph evidence, explicit eligibility evidence, and caller-supplied time/cost inputs, then returns a `CriticalInvestigationPacket` with `externalActionAllowed: false`.
+**Architecture:** Add focused deterministic modules under `packages/core/src/` and keep network access outside core. The assembler consumes `PublicDemandCandidate`, verified BuildGraph evidence, explicit eligibility evidence, caller-supplied time/cost inputs, and deterministic investigation-task resolution evidence, then returns a `CriticalInvestigationPacket` with `externalActionAllowed: false`.
 
 **Tech Stack:** TypeScript 6, Node.js 22, Node built-in test runner, existing OpportunityOS core contracts, existing BuildGraph preflight contract, canonical SHA-256 utilities.
 
@@ -281,14 +281,21 @@ test('unverified BuildGraph IDs cannot manufacture proof', () => {
   const result = crossMatchBuildGraphCommercialEvidence({
     demandText: 'AI automation',
     evidence: {
-      preflight: preflight({evidence: {projectIds: ['project:imaginary'], capabilityIds: [], constraintIds: [], decisionIds: []}}),
-      items: [{id: 'project:imaginary', kind: 'PROJECT', title: 'Imaginary', description: 'AI automation', tags: ['ai'], verified: false, evidenceRefs: []}],
+      preflight: preflight({
+        evidence: {projectIds: ['project:imaginary'], constraintIds: [], decisionIds: []},
+      }),
+      items: [{
+        id: 'project:imaginary', kind: 'PROJECT', title: 'Imaginary',
+        description: 'AI automation', tags: ['ai'], verified: false, evidenceRefs: [],
+      }],
     },
   });
   assert.equal(result.state, 'EVIDENCE_GAP');
   assert.equal(result.score, null);
 });
 ```
+
+The local `preflight()` fixture must always match the repository's existing `BuildGraphPreflightResult` exactly, including `evidence: {projectIds, constraintIds, decisionIds}` and no invented `capabilityIds` property.
 
 - [ ] **Step 2: Run RED**
 
@@ -772,6 +779,7 @@ export interface RevalidationAssessment {
 export function assessOpportunityRevalidation(input: {
   priority: CommercialPriority;
   retrievedAt: string;
+  lastRevalidatedAt: string | null;
   now: string;
   originalContentFingerprint: string;
   currentContentFingerprint: string | null;
@@ -785,18 +793,35 @@ export function assessOpportunityRevalidation(input: {
 ```js
 test('P0-Critical becomes due after six hours', () => {
   const result = assessOpportunityRevalidation({
-    priority: 'P0_CRITICAL', retrievedAt: '2026-08-16T10:00:00Z', now: '2026-08-16T16:00:01Z',
-    originalContentFingerprint: 'a', currentContentFingerprint: 'a', sourceStillActive: true,
-    revalidationEvidenceRefs: ['source:revalidated'],
+    priority: 'P0_CRITICAL', retrievedAt: '2026-08-16T10:00:00Z', lastRevalidatedAt: null,
+    now: '2026-08-16T16:00:01Z', originalContentFingerprint: 'a', currentContentFingerprint: 'a',
+    sourceStillActive: true, revalidationEvidenceRefs: [],
   });
   assert.equal(result.state, 'REVALIDATION_DUE');
 });
 
+test('evidence-backed revalidation resets the critical age window', () => {
+  const result = assessOpportunityRevalidation({
+    priority: 'P0_CRITICAL', retrievedAt: '2026-08-16T10:00:00Z', lastRevalidatedAt: '2026-08-16T15:30:00Z',
+    now: '2026-08-16T16:00:01Z', originalContentFingerprint: 'a', currentContentFingerprint: 'a',
+    sourceStillActive: true, revalidationEvidenceRefs: ['source:revalidated'],
+  });
+  assert.equal(result.state, 'CURRENT');
+});
+
+test('lastRevalidatedAt without evidence is rejected', () => {
+  assert.throws(() => assessOpportunityRevalidation({
+    priority: 'P0_CRITICAL', retrievedAt: '2026-08-16T10:00:00Z', lastRevalidatedAt: '2026-08-16T15:30:00Z',
+    now: '2026-08-16T16:00:01Z', originalContentFingerprint: 'a', currentContentFingerprint: 'a',
+    sourceStillActive: true, revalidationEvidenceRefs: [],
+  }), /REVALIDATION_EVIDENCE_REQUIRED/);
+});
+
 test('content fingerprint change requires full re-analysis', () => {
   const result = assessOpportunityRevalidation({
-    priority: 'P0', retrievedAt: '2026-08-16T10:00:00Z', now: '2026-08-16T11:00:00Z',
-    originalContentFingerprint: 'a', currentContentFingerprint: 'b', sourceStillActive: true,
-    revalidationEvidenceRefs: ['source:changed'],
+    priority: 'P0', retrievedAt: '2026-08-16T10:00:00Z', lastRevalidatedAt: null,
+    now: '2026-08-16T11:00:00Z', originalContentFingerprint: 'a', currentContentFingerprint: 'b',
+    sourceStillActive: true, revalidationEvidenceRefs: ['source:changed'],
   });
   assert.equal(result.state, 'STALE');
   assert.ok(result.reasons.includes('CONTENT_CHANGED'));
@@ -804,9 +829,9 @@ test('content fingerprint change requires full re-analysis', () => {
 
 test('closed or deleted source invalidates opportunity', () => {
   const result = assessOpportunityRevalidation({
-    priority: 'P0_CRITICAL', retrievedAt: '2026-08-16T10:00:00Z', now: '2026-08-16T10:30:00Z',
-    originalContentFingerprint: 'a', currentContentFingerprint: 'a', sourceStillActive: false,
-    revalidationEvidenceRefs: ['source:closed'],
+    priority: 'P0_CRITICAL', retrievedAt: '2026-08-16T10:00:00Z', lastRevalidatedAt: null,
+    now: '2026-08-16T10:30:00Z', originalContentFingerprint: 'a', currentContentFingerprint: 'a',
+    sourceStillActive: false, revalidationEvidenceRefs: ['source:closed'],
   });
   assert.equal(result.state, 'INVALIDATED');
 });
@@ -829,6 +854,8 @@ const TTL_MS = {
   REJECT: null,
 } as const;
 ```
+
+If `lastRevalidatedAt !== null`, require non-empty `revalidationEvidenceRefs` and use `lastRevalidatedAt` as the effective freshness baseline. Otherwise use `retrievedAt`.
 
 Rules in order: invalid source -> `INVALIDATED`; changed fingerprint -> `STALE`; age beyond TTL -> `REVALIDATION_DUE`; otherwise `CURRENT`. Invalid ISO timestamps throw.
 
@@ -896,9 +923,11 @@ export function buildCommercialInvestigation(input: {
   winabilityOverrides?: Partial<Pick<WinabilityInputs, 'scopeFit' | 'competitionCloseability'>>;
   estimatedPursuitCostCents: number | null;
   now: string;
+  lastRevalidatedAt: string | null;
   currentContentFingerprint: string | null;
   sourceStillActive: boolean | null;
   revalidationEvidenceRefs: string[];
+  resolvedInvestigationTaskIds: string[];
 }): CriticalInvestigationPacket;
 ```
 
@@ -947,6 +976,8 @@ assert.ok(packet.proofTasks.some((task) => task.kind === 'REVALIDATE_SOURCE'));
 
 Add capability-gap test where priority remains P0-Critical but readiness is `NOT_READY` and `PROVE_CAPABILITY` is required.
 
+Add a resolved-task test proving `READY_FOR_HUMAN_REVIEW` is reachable only when all deterministic required task IDs are supplied in `resolvedInvestigationTaskIds` and every other readiness gate passes.
+
 - [ ] **Step 2: Run RED**
 
 ```bash
@@ -981,13 +1012,40 @@ Derive winability inputs without inventing missing facts:
 - freshnessUrgency = current critical/P0 -> 1; current other -> 0.7; non-current -> null
 - competitionCloseability = caller override or null
 
-Generate required proof tasks:
+Build `factVsInference` deterministically:
+
+```ts
+const sourceFacts = candidate.signal.facts.map((fact) => ({
+  kind: 'FACT',
+  statement: fact.statement,
+  evidenceRefs: [...fact.evidenceRefs],
+}));
+
+const modeledInferences = [
+  {kind: 'INFERENCE', statement: `commercial-priority:${priorityResult.priority}`, evidenceRefs: [...candidate.signal.provenanceRefs]},
+  ...(winProbability.probability === null ? [] : [{
+    kind: 'INFERENCE',
+    statement: `uncalibrated-win-probability:${winProbability.probability}`,
+    evidenceRefs: [...winProbability.evidenceRefs],
+  }]),
+] as const;
+```
+
+Generate deterministic task IDs from `candidate.signal.id`, for example:
+
+```ts
+const taskId = (kind: InvestigationTask['kind']) => `investigation:${candidate.signal.id}:${kind.toLowerCase()}`;
+```
+
+Generate tasks:
 
 - non-current -> `REVALIDATE_SOURCE`
 - `EVIDENCE_GAP` -> `PROVE_CAPABILITY`
 - eligibility `UNKNOWN`/`PARTIAL` -> `VERIFY_ELIGIBILITY`
 - ambiguous amount semantics when P0/P0-Critical depends on them -> `RESOLVE_VALUE_SEMANTICS`
-- every P0/P0-Critical -> at least one `FALSIFY_OPPORTUNITY` task
+- every P0/P0-Critical -> `FALSIFY_OPPORTUNITY`
+
+For each generated task, set `required` to `!input.resolvedInvestigationTaskIds.includes(task.id)`. Resolved tasks must retain evidence references; if the caller marks a task resolved without evidence available in the packet inputs, keep it required and add `RESOLUTION_EVIDENCE_MISSING` to `missingEvidence`.
 
 `READY_FOR_HUMAN_REVIEW` only when:
 
@@ -999,8 +1057,6 @@ revalidation.state === 'CURRENT'
 && eligibility.state !== 'DISQUALIFIED'
 && proofTasks.every((task) => !task.required)
 ```
-
-For v1, falsification tasks remain required unless the caller has supplied evidence resolving them; therefore most packets should truthfully remain `NOT_READY` until investigation evidence is added.
 
 - [ ] **Step 4: Add authority-source guard test**
 
@@ -1016,10 +1072,9 @@ const forbidden = [
   /submit(bid|proposal|application)/i,
   /accept(contract|project)/i,
   /release(milestone|payment)/i,
+  /\bfetch\s*\(/,
 ];
 ```
-
-Allow no `fetch(` usage inside the deterministic commercial-intelligence modules.
 
 - [ ] **Step 5: Run targeted/full verification**
 
