@@ -78,18 +78,22 @@ export function compileKnowledgePreflight(
     .filter((candidate) => Number.isFinite(candidate.combinedScore) && candidate.combinedScore >= 0)
     .sort((a, b) => b.combinedScore - a.combinedScore || a.id.localeCompare(b.id));
   const strongReusable = candidates.filter((candidate) => isReusableKind(candidate.kind) && candidate.combinedScore >= 0.65);
+  const strongActiveReusable = strongReusable.filter((candidate) => candidate.status === 'active');
+  const strongHistoricalReusable = strongReusable.filter((candidate) => candidate.status !== 'active');
   const ambiguous = Boolean(registry.ambiguous) || (
-    strongReusable.length > 1
-    && strongReusable[0]!.combinedScore >= 0.85
-    && strongReusable[1]!.combinedScore >= 0.85
-    && Math.abs(strongReusable[0]!.combinedScore - strongReusable[1]!.combinedScore) <= 0.03
+    strongActiveReusable.length > 1
+    && strongActiveReusable[0]!.combinedScore >= 0.85
+    && strongActiveReusable[1]!.combinedScore >= 0.85
+    && Math.abs(strongActiveReusable[0]!.combinedScore - strongActiveReusable[1]!.combinedScore) <= 0.03
   );
 
   const status: KnowledgePreflightStatus = ambiguous
     ? 'REVIEW'
-    : strongReusable.length > 0
+    : strongActiveReusable.length > 0
       ? 'REUSE_EVIDENCE_FOUND'
-      : 'NO_REUSE_EVIDENCE';
+      : strongHistoricalReusable.length > 0
+        ? 'REVIEW'
+        : 'NO_REUSE_EVIDENCE';
 
   return {
     request,
