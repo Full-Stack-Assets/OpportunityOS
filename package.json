@@ -11,14 +11,15 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test packages/core/test/*.test.mjs packages/postgres/test/*.test.mjs && node scripts/verify-buildgraph-plugins.mjs",
+    "test": "node --experimental-strip-types --test packages/core/test/*.test.mjs packages/postgres/test/*.test.mjs && node scripts/verify-buildgraph-plugins.mjs && npm run buildgraph:backfill:github > /tmp/buildgraph-backfill.jsonl",
     "typecheck": "npm run build:core && npm run typecheck:local && npm run typecheck --workspace @opportunityos/worker && npm run typecheck --workspace @opportunityos/control-plane && npm run typecheck --workspace @opportunityos/buildgraph-mcp",
     "build:core": "tsc -p packages/core/tsconfig.json",
     "build": "npm run build:core && npm run build --workspace @opportunityos/postgres && npm run build --workspace @opportunityos/worker && npm run build --workspace @opportunityos/control-plane && npm run build --workspace @opportunityos/buildgraph-mcp",
     "dev": "npm run dev --workspace @opportunityos/control-plane",
     "dev:buildgraph": "npm run start --workspace @opportunityos/buildgraph-mcp",
     "smoke": "node --experimental-strip-types scripts/smoke.ts",
-    "typecheck:local": "tsc -p packages/core/tsconfig.json --noEmit && tsc -p packages/postgres/tsconfig.json --noEmit"
+    "typecheck:local": "tsc -p packages/core/tsconfig.json --noEmit && tsc -p packages/postgres/tsconfig.json --noEmit",
+    "buildgraph:backfill:github": "node --experimental-strip-types scripts/buildgraph-github-backfill.mjs"
   },
   "devDependencies": {
     "typescript": "^6.0.0"

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "1331248826",
+    "name": "OpportunityOS",
+    "fullName": "Full-Stack-Assets/OpportunityOS",
+    "url": "https://github.com/Full-Stack-Assets/OpportunityOS",
+    "visibility": "public",
+    "defaultBranch": "main",
+    "size": 191,
+    "archived": false,
+    "searchIndexed": true,
+    "observedAt": "2026-08-16T15:55:00.000Z"
+  },
+  {
+    "id": "1212179043",
+    "name": "HostGraph-Procurement-Command-Center",
+    "fullName": "Full-Stack-Assets/HostGraph-Procurement-Command-Center",
+    "url": "https://github.com/Full-Stack-Assets/HostGraph-Procurement-Command-Center",
+    "visibility": "public",
+    "defaultBranch": "main",
+    "size": 416,
+    "archived": false,
+    "searchIndexed": true,
+    "observedAt": "2026-08-16T15:55:00.000Z"
+  },
+  {
+    "id": "1266143681",
+    "name": "Photobeam",
+    "fullName": "Full-Stack-Assets/Photobeam",
+    "url": "https://github.com/Full-Stack-Assets/Photobeam",
+    "visibility": "public",
+    "defaultBranch": "main",
+    "size": 101,
+    "archived": false,
+    "searchIndexed": true,
+    "observedAt": "2026-08-16T15:55:00.000Z"
+  },
+  {
+    "id": "1298622257",
+    "name": "Temporal-Drift",
+    "fullName": "Full-Stack-Assets/Temporal-Drift",
+    "url": "https://github.com/Full-Stack-Assets/Temporal-Drift",
+    "visibility": "public",
+    "defaultBranch": "main",
+    "size": 103179,
+    "archived": false,
+    "searchIndexed": true,
+    "observedAt": "2026-08-16T15:55:00.000Z"
+  }
+]

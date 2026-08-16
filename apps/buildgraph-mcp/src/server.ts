@@ -3,6 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import {
   BUILDGRAPH_CAPABILITIES,
   classifyKnowledgeDisposition,
+  compileKnowledgePreflight,
   createCanonicalEntity,
   createSourceRecord,
   ingestGitHubRepository,
@@ -13,7 +14,7 @@ import cors from 'cors';
 import express from 'express';
 import { z } from 'zod';
 
-const SERVER_VERSION = '0.2.0-simulation';
+const SERVER_VERSION = '0.3.0-simulation';
 
 const sourceSystemSchema = z.enum([
   'github',
@@ -75,6 +76,17 @@ const githubRepositorySchema = z.object({
   archived: z.boolean(),
   searchIndexed: z.boolean().optional(),
   observedAt: z.string().min(1),
+});
+
+const preflightCandidateSchema = z.object({
+  id: z.string().min(1),
+  kind: entityKindSchema,
+  canonicalName: z.string().min(1),
+  status: entityStatusSchema,
+  combinedScore: z.number().nonnegative(),
+  sourceIdentityScore: z.number().nonnegative(),
+  reasons: z.array(z.string()),
+  sourceRefs: z.array(sourceRefSchema),
 });
 
 function hydrateKnowledgeInputs(
@@ -354,6 +366,38 @@ function createServer(): McpServer {
           resolution,
           disposition: classifyKnowledgeDisposition(source, resolution),
         });
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'buildgraph_compile_knowledge_preflight',
+    {
+      title: 'Compile knowledge-backed BuildGraph preflight evidence',
+      description: 'Use this after registry retrieval and before authorizing a new build. It compiles reusable projects, repositories, decisions, constraints, and source evidence into a fail-closed preflight result. It performs no database or connector write.',
+      inputSchema: {
+        request: z.object({
+          name: z.string().min(1),
+          description: z.string(),
+          capabilities: z.array(z.string()),
+        }),
+        registry: z.object({
+          available: z.boolean(),
+          ambiguous: z.boolean().optional(),
+          results: z.array(preflightCandidateSchema),
+        }),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ request, registry }) => {
+      try {
+        return toolResult({ preflight: compileKnowledgePreflight(request, registry) });
       } catch (error) {
         return toolError(error);
       }
