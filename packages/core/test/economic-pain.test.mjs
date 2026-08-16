@@ -42,3 +42,14 @@ test('ambiguous $1.4M annual impact remains OTHER_EXPOSURE instead of being disc
   assert.equal(result.amounts[0].minCents, 140_000_000);
   assert.equal(result.amounts[0].maxCents, 140_000_000);
 });
+
+test('$500k-$1.4M budget range is one bounded observation', () => {
+  const result = core.extractObservedEconomicPain({
+    verificationState: 'VERIFIED',
+    facts: [fact('Budget range is $500k-$1.4M for the implementation.')],
+  });
+  assert.equal(result.amounts.length, 1);
+  assert.equal(result.amounts[0].kind, 'BUDGET_RANGE');
+  assert.equal(result.amounts[0].minCents, 50_000_000);
+  assert.equal(result.amounts[0].maxCents, 140_000_000);
+});
