@@ -147,9 +147,9 @@ function mapRetrievalRow(row: Record<string, unknown>): KnowledgeRetrievalCandid
   const embedding = asNumberArray(row.embedding);
   return {
     id: asString(row.id),
-    kind: asString(row.kind) as KnowledgeRetrievalCandidate['kind'],
+    kind: asString(row.kind) as NonNullable<KnowledgeRetrievalCandidate['kind']>,
     canonicalName: asString(row.canonical_name),
-    status: asString(row.status) as KnowledgeRetrievalCandidate['status'],
+    status: asString(row.status) as NonNullable<KnowledgeRetrievalCandidate['status']>,
     normalizedName: asString(row.normalized_name),
     aliases: asStringArray(row.aliases),
     sourceRefs: asSourceRefs(row.source_refs),
