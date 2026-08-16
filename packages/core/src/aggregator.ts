@@ -168,7 +168,7 @@ export function aggregateOpportunities(
   const verified: IndexedEvidence[] = [];
 
   for (let inputIndex = 0; inputIndex < evidence.length; inputIndex += 1) {
-    const record = evidence[inputIndex];
+    const record = evidence[inputIndex]!;
     try {
       assertVerifiedMarketplaceOpportunityEvidence(record);
       verified.push({ input_index: inputIndex, evidence_id: marketplaceEvidenceId(record), evidence: record });
@@ -194,7 +194,9 @@ export function aggregateOpportunities(
   const exactCanonical: IndexedEvidence[] = [];
   for (const [evidenceId, group] of exactGroups) {
     group.sort(canonicalCompare);
-    exactCanonical.push(group[0]);
+    const retained = group[0];
+    if (retained === undefined) continue;
+    exactCanonical.push(retained);
     for (const duplicate of group.slice(1)) {
       duplicates.push({ duplicate_input_index: duplicate.input_index, retained_evidence_id: evidenceId, reason: 'exact_identity' });
     }
@@ -221,6 +223,7 @@ export function aggregateOpportunities(
   for (const group of sourceGroups.values()) {
     group.sort(canonicalCompare);
     const retained = group[0];
+    if (retained === undefined) continue;
     canonicalBuyers.push(retained);
     for (const duplicate of group.slice(1)) {
       duplicates.push({ duplicate_input_index: duplicate.input_index, retained_evidence_id: retained.evidence_id, reason: 'source_equivalent' });
@@ -278,19 +281,20 @@ export function aggregateOpportunities(
     reason: 'service_listing',
   }));
 
-  const rankCandidates = accepted
-    .filter((item) => (scoringByEvidenceId.get(item.evidence_id) ?? []).length === 1)
-    .map((item) => {
-      const scoring = scoringByEvidenceId.get(item.evidence_id)![0].value;
-      return {
-        id: item.evidence_id,
-        capabilityFit: scoring.capabilityFit,
-        evidenceQuality: scoring.evidenceQuality,
-        expectedValueCents: scoring.expectedValueCents,
-        effortPoints: scoring.effortPoints,
-        deadlineUrgency: scoring.deadlineUrgency,
-      };
-    });
+  const rankCandidates = accepted.flatMap((item) => {
+    const scoringRows = scoringByEvidenceId.get(item.evidence_id) ?? [];
+    if (scoringRows.length !== 1) return [];
+    const scoring = scoringRows[0]?.value;
+    if (scoring === undefined) return [];
+    return [{
+      id: item.evidence_id,
+      capabilityFit: scoring.capabilityFit,
+      evidenceQuality: scoring.evidenceQuality,
+      effortPoints: scoring.effortPoints,
+      deadlineUrgency: scoring.deadlineUrgency,
+      ...(scoring.expectedValueCents === undefined ? {} : { expectedValueCents: scoring.expectedValueCents }),
+    }];
+  });
 
   const ranked = rankOpportunities(rankCandidates);
   const shortlist = ranked.slice(0, shortlistLimit).map((item) => ({ evidence_id: item.id, score: item.score }));
