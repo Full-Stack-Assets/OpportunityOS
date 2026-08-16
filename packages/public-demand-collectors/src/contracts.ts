@@ -47,7 +47,7 @@ export interface CollectorRunFailureInput {
   collectorVersion: string;
   credentialMode?: CollectorCredentialMode;
   retrievalMethod?: string;
-  previousReceiptHash?: string;
+  previousReceiptHash?: string | undefined;
   requestContext?: unknown;
 }
 
