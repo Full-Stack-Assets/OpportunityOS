@@ -18,10 +18,48 @@ test('canonical architecture inventory validates without broken references', () 
 
 test('inventory contains the required architecture classes', () => {
   assert.ok(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'project').length >= 30);
+  assert.equal(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'repository').length, 98);
+  assert.equal(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'agent').length, 131);
+  assert.equal(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'skill').length, 45);
   assert.ok(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'catalog').length >= 3);
   assert.ok(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'integration').length >= 15);
   assert.ok(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'runtime').length >= 10);
   assert.ok(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'automation').length >= 4);
+});
+
+test('role and skill catalogs expand into stable canonical records', () => {
+  const orchestrator = core.getRegistryRecord(core.CANONICAL_ARCHITECTURE_INVENTORY, 'agent.cmo-01');
+  assert.equal(orchestrator?.name, 'Artist Operations Orchestrator');
+  assert.equal(orchestrator?.kind, 'agent');
+  assert.equal(orchestrator?.metadata?.catalogId, 'CMO-01');
+
+  const implementation = core.getRegistryRecord(core.CANONICAL_ARCHITECTURE_INVENTORY, 'agent.esp-02');
+  assert.equal(implementation?.name, 'Software Implementation Agent');
+
+  const normalization = core.getRegistryRecord(core.CANONICAL_ARCHITECTURE_INVENTORY, 'skill.skl-001');
+  assert.equal(normalization?.name, 'Structured Intake Normalization');
+  assert.equal(normalization?.kind, 'skill');
+  assert.equal(normalization?.metadata?.catalogId, 'SKL-001');
+});
+
+test('GitHub repository inventory is complete for the observed account snapshot', () => {
+  for (const id of [
+    'repository.opportunityos',
+    'repository.buildgraph',
+    'repository.blaize-sunday',
+    'repository.temporal-drift',
+    'repository.hostgraph-procurement-command-center',
+    'repository.contra-operator',
+  ]) {
+    const repository = core.getRegistryRecord(core.CANONICAL_ARCHITECTURE_INVENTORY, id);
+    assert.ok(repository, `missing observed repository: ${id}`);
+    assert.equal(repository.kind, 'repository');
+    assert.equal(repository.verification, 'VERIFIED');
+  }
+
+  assert.equal(core.getRegistryRecord(core.CANONICAL_ARCHITECTURE_INVENTORY, 'repository.vibe-coding-platform')?.lifecycle, 'archived');
+  assert.equal(core.getRegistryRecord(core.CANONICAL_ARCHITECTURE_INVENTORY, 'repository.cloner')?.metadata?.defaultBranch, 'master');
+  assert.equal(core.getRegistryRecord(core.CANONICAL_ARCHITECTURE_INVENTORY, 'repository.tradewind-dealflow')?.metadata?.defaultBranch, 'codex/authorized-lead-intake');
 });
 
 test('active portfolio seed has stable canonical registry IDs', () => {
