@@ -3,6 +3,8 @@ import { hashCanonical } from './canonical.ts';
 export type RegistryKind =
   | 'project'
   | 'repository'
+  | 'agent'
+  | 'skill'
   | 'catalog'
   | 'integration'
   | 'runtime'
@@ -122,6 +124,8 @@ function countsByKind(records: CanonicalRegistryRecord[]): Record<RegistryKind, 
   const counts: Record<RegistryKind, number> = {
     project: 0,
     repository: 0,
+    agent: 0,
+    skill: 0,
     catalog: 0,
     integration: 0,
     runtime: 0,
