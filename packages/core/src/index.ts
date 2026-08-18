@@ -8,6 +8,7 @@ export * from './buildgraph.ts';
 export * from './buildgraph-skills.ts';
 export * from './agentic-registry.ts';
 export * from './canonical-architecture-inventory.ts';
+export * from './agentic-manifests.ts';
 export * from './factories.ts';
 export * from './verification.ts';
 export * from './economics.ts';
