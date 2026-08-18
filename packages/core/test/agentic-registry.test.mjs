@@ -17,11 +17,50 @@ test('canonical architecture inventory validates without broken references', () 
 });
 
 test('inventory contains the required architecture classes', () => {
-  assert.ok(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'project').length >= 20);
+  assert.ok(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'project').length >= 30);
   assert.ok(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'catalog').length >= 3);
-  assert.ok(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'integration').length >= 10);
+  assert.ok(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'integration').length >= 15);
   assert.ok(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'runtime').length >= 10);
   assert.ok(core.listRegistryRecords(core.CANONICAL_ARCHITECTURE_INVENTORY, 'automation').length >= 4);
+});
+
+test('active portfolio seed has stable canonical registry IDs', () => {
+  const requiredProjectIds = [
+    'project.autonomous-discovery-engine',
+    'project.contra-operator',
+    'project.margin-leak-monitor',
+    'project.renewallens',
+    'project.bid-radar',
+    'project.wedding-quote-concierge',
+    'project.worldline-explorer',
+    'project.cmapss-predictive-maintenance',
+    'project.inflatable-rental-business',
+    'project.active-web-estate',
+  ];
+
+  for (const id of requiredProjectIds) {
+    const record = core.getRegistryRecord(core.CANONICAL_ARCHITECTURE_INVENTORY, id);
+    assert.ok(record, `missing canonical project record: ${id}`);
+    assert.equal(record.kind, 'project');
+    assert.equal(record.lifecycle, 'active');
+  }
+});
+
+test('observed connected systems preserve verified health and degraded states', () => {
+  for (const id of ['integration.google-drive', 'integration.wisebase', 'integration.airtable']) {
+    const integration = core.getRegistryRecord(core.CANONICAL_ARCHITECTURE_INVENTORY, id);
+    assert.equal(integration?.verification, 'VERIFIED', `${id} must be verified from a successful provider read`);
+    assert.equal(integration?.health, 'HEALTHY', `${id} must be healthy from a successful provider read`);
+  }
+
+  const clickup = core.getRegistryRecord(core.CANONICAL_ARCHITECTURE_INVENTORY, 'integration.clickup');
+  assert.equal(clickup?.lifecycle, 'active');
+  assert.equal(clickup?.verification, 'PARTIAL');
+  assert.equal(clickup?.health, 'DEGRADED');
+
+  const ideabrowser = core.getRegistryRecord(core.CANONICAL_ARCHITECTURE_INVENTORY, 'integration.ideabrowser');
+  assert.equal(ideabrowser?.verification, 'PARTIAL');
+  assert.equal(ideabrowser?.health, 'UNAVAILABLE');
 });
 
 test('role, skill, and integration library counts preserve the verified source inventory', () => {
