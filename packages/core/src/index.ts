@@ -10,6 +10,7 @@ export * from './agentic-registry.ts';
 export * from './canonical-architecture-inventory.ts';
 export * from './agentic-manifests.ts';
 export * from './integration-registry.ts';
+export * from './runtime-adapters.ts';
 export * from './factories.ts';
 export * from './verification.ts';
 export * from './economics.ts';
