@@ -138,13 +138,13 @@ export function buildCanonicalRegistrySnapshot(
   const validation = validateCanonicalRegistry(records);
   if (!validation.valid) throw new Error(`INVALID_CANONICAL_REGISTRY: ${validation.errors.join('; ')}`);
 
-  const canonicalRecords = [...records]
-    .map((record) => ({
+  const canonicalRecords: CanonicalRegistryRecord[] = [...records]
+    .map((record): CanonicalRegistryRecord => ({
       ...record,
-      capabilities: record.capabilities ? [...record.capabilities].sort() : undefined,
-      relationships: record.relationships
-        ? [...record.relationships].sort((a, b) => `${a.type}:${a.targetId}`.localeCompare(`${b.type}:${b.targetId}`))
-        : undefined,
+      ...(record.capabilities ? { capabilities: [...record.capabilities].sort() } : {}),
+      ...(record.relationships
+        ? { relationships: [...record.relationships].sort((a, b) => `${a.type}:${a.targetId}`.localeCompare(`${b.type}:${b.targetId}`)) }
+        : {}),
       evidence: [...record.evidence].sort((a, b) => `${a.sourceType}:${a.sourceRef}`.localeCompare(`${b.sourceType}:${b.sourceRef}`)),
     }))
     .sort((a, b) => `${a.kind}:${a.id}`.localeCompare(`${b.kind}:${b.id}`));
