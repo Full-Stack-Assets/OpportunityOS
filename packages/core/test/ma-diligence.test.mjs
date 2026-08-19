@@ -15,6 +15,7 @@ test('M&A carve-out diligence files exist and stay honest', () => {
     'ip-and-name.md',
     'data-room-index.md',
     'demo-script.md',
+    'founder-checklist.md',
     'outreach-emails.md',
   ]) {
     assert.equal(fs.existsSync(path.join(root, file)), true, file);
@@ -33,6 +34,15 @@ test('M&A carve-out diligence files exist and stay honest', () => {
   assert.match(emails, /GitHub/);
   assert.match(emails, /OpenAI/);
   assert.match(emails, /Anthropic/);
+  assert.match(emails, /IP assignment plus employment/);
+
+  const checklist = fs.readFileSync(path.join(root, 'founder-checklist.md'), 'utf8');
+  assert.match(checklist, /investors@fiverr.com/);
+  assert.match(checklist, /Do not send/);
+
+  const ci = fs.readFileSync('.github/workflows/ci.yml', 'utf8');
+  assert.match(ci, /npm ci/);
+  assert.match(ci, /npm run demo/);
 
   const perimeter = fs.readFileSync(path.join(root, 'asset-perimeter.md'), 'utf8');
   assert.match(perimeter, /Out of perimeter/);

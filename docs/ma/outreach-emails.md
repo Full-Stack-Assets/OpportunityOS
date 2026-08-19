@@ -1,10 +1,10 @@
 # Unsent Tier-A outreach drafts
 
-**Do not send until the founder confirms the asset perimeter and name-collision disclosure.**  
+**Do not send until [founder-checklist.md](founder-checklist.md) is complete.**  
 **Do not attach the CIM.** One-pager only. No valuation. No live-execution claims.  
 **Stop after one follow-up at 10 business days.**
 
-Replace `{{CORPDEV_EMAIL}}` with a researched Corporate Development / Corporate Strategy address. Do not use public support forms as the primary path.
+Replace `{{CORPDEV_EMAIL}}` with a researched Corporate Development / Corporate Strategy address, or ask the public IR alias in [founder-checklist.md](founder-checklist.md) to route you. Do not use product support forms.
 
 ---
 
@@ -112,3 +112,19 @@ hello@fullstackassets.com
 Hello — short follow-up on the OpportunityOS carve-out (simulation kernel, no live marketplace writes). Happy to keep this to 20 minutes or close the thread if it is not a fit.
 
 Nic
+
+---
+
+## Tier C — acquihire (if product desks are silent)
+
+**Subject:** IP assignment + product-engineering continuity — OpportunityOS kernel
+
+Hello,
+
+I am Nic Albertson, the founder of Full Stack Assets. OpportunityOS is a simulation-only governed-agent kernel (Trust Kernel, fail-closed collectors, commercial investigation that cannot authorize outreach). There is no ARR.
+
+I am open to an **IP assignment plus employment** conversation with a product-engineering or agent-platform team, not a priced SaaS process. 20 minutes is enough to run `npm run demo` (`externalActionAllowed = false`).
+
+Nic Albertson  
+hello@fullstackassets.com
+

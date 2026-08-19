@@ -1,8 +1,8 @@
 # Buyer map
 
 **Use:** named desks, one thesis each, why this is not a competing marketplace, and what to demo.  
-**Do not send email until [one-pager.md](one-pager.md) and [demo-script.md](demo-script.md) are confirmed by the founder.**  
-**Do not use support inboxes. Prefer Corporate Development / Corporate Strategy / M&A.**
+**Do not send email until [founder-checklist.md](founder-checklist.md) is complete.**  
+**Do not use support inboxes. Prefer Corporate Development / Corporate Strategy / M&A, reached via public IR where needed.**
 
 ## Tier A
 
@@ -12,6 +12,7 @@
 - **Why not a competitor:** No Fiverr write tools, no anti-bot bypass, no gig purchase path.
 - **Why they might care:** Agent features that spam buyers or violate ToS are an existential risk; this kernel is built to stop before that.
 - **Demo:** Fiverr connector README + `record_kind` test narrative; investigation packet never authorizes outreach.
+- **Public route:** [IR contact](https://investors.fiverr.com/more/contact-us) `investors@fiverr.com`. Ask IR to introduce corporate development. Fiverr’s Q4'25 shareholder letter assigns M&A leadership to President Ofer Katz. Do not use fiverr.com/support.
 - **Do not say:** “We bid on Fiverr” or “we bypass Cloudflare.”
 
 ### 2. Freelancer.com — Corporate Development / partnerships
@@ -67,7 +68,8 @@ Follow [demo-script.md](demo-script.md). In one sentence: **smoke completes in s
 
 ## Targeting rules
 
+- Complete [founder-checklist.md](founder-checklist.md) before any send.
 - Six Tier-A emails only in wave 1 ([outreach-emails.md](outreach-emails.md)).
 - One follow-up after 10 business days; then stop that desk.
-- No cold LinkedIn spam, no valuation, no live-execution claims.
+- No cold LinkedIn spam from this repo, no valuation, no live-execution claims.
 - No request that Fiverr or Freelancer “turn on write APIs” as a customer proof.

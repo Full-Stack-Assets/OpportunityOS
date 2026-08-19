@@ -24,6 +24,8 @@ npm run demo
 pytest -q connectors/freelancer/tests connectors/fiverr/tests
 ```
 
+CI (`.github/workflows/ci.yml`) now runs `npm ci`, the same tests, smoke, **and** `npm run demo` against the committed lockfile.
+
 ## Intentionally not claimed
 
 - PostgreSQL **live** migration against a running server is an operations gate ([docs/architecture/operations.md](docs/architecture/operations.md) item 6; [docs/architecture/release-evidence.md](docs/architecture/release-evidence.md)).

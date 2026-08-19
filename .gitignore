@@ -1,9 +1,12 @@
 node_modules/
 dist/
 .next/
+out/
 coverage/
 .env
 .env.*
 !.env.example
 *.log
 .DS_Store
+__pycache__/
+*.tsbuildinfo

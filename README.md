@@ -222,6 +222,7 @@ After installing workspace dependencies, verify all TypeScript behavioral contra
 npm test
 npm run typecheck
 npm run smoke
+npm run demo
 npm run build
 ```
 

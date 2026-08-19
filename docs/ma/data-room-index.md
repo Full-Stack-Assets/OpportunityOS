@@ -15,6 +15,7 @@ Map buyer diligence questions to files in this repository. Paths are relative to
 | Buyer map | [docs/ma/buyer-map.md](buyer-map.md) |
 | IP and name | [docs/ma/ip-and-name.md](ip-and-name.md) |
 | Demo script | [docs/ma/demo-script.md](demo-script.md) |
+| Founder go/no-go | [docs/ma/founder-checklist.md](founder-checklist.md) |
 | Unsent outreach drafts | [docs/ma/outreach-emails.md](outreach-emails.md) |
 
 ## Product and architecture
