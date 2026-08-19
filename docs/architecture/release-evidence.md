@@ -12,6 +12,7 @@
 | Independent artifact verification | Node behavioral test | Verified locally |
 | Honest economics | Node behavioral test | Verified locally |
 | Simulation orchestration | Node behavioral test + smoke | Verified locally |
+| Buyer demo (non-authorizing investigation) | `npm run demo` | Verified locally; `externalActionAllowed = false` |
 | PostgreSQL adapter behavior | Node behavioral tests | Verified locally |
 | PostgreSQL live migration | Requires live PostgreSQL | Pending external environment |
 | Full npm clean-room install | Requires npm registry access | Pending external environment |
