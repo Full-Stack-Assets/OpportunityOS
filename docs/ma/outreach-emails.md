@@ -1,35 +1,41 @@
 # Unsent Tier-A outreach drafts
 
-**Do not send until [founder-checklist.md](founder-checklist.md) is complete.**  
-**Do not attach the CIM.** One-pager only. No valuation. No live-execution claims.  
-**Stop after one follow-up at 10 business days.**
-
-Replace `{{CORPDEV_EMAIL}}` with a researched Corporate Development / Corporate Strategy address, or ask the public IR alias in [founder-checklist.md](founder-checklist.md) to route you. Do not use product support forms.
+Copy from here after [founder-checklist.md](founder-checklist.md) is worked through.  
+Attach only [one-pager.md](one-pager.md). Do not attach the CIM. No valuation. No live-execution claims.  
+Wave 1: Fiverr, Freelancer, Upwork, Microsoft/GitHub. Hold OpenAI and Anthropic until a named intro exists.  
+Stop after one follow-up at 10 business days.
 
 ---
 
 ## 1. Fiverr — Corporate Development
 
+**To:** investors@fiverr.com  
 **Subject:** Governed agent kernel (read-only listings, no bidding) — 20 minutes
 
 Hello,
 
+Please forward this to Fiverr corporate development / M&A.
+
 I built OpportunityOS, a fail-closed commercial-agent kernel that treats Fiverr records as seller `service_listing` evidence only — they cannot become client WorkOrders or bids. The current release is simulation-only: no messages, purchases, or anti-bot bypass.
 
-I am exploring a carve-out (IP + founder continuity), not a competing marketplace. Would you or corporate development take 20 minutes to see a simulation smoke run and a P0-Critical investigation packet that still has `externalActionAllowed = false`?
+I am exploring a carve-out (IP + founder continuity), not a competing marketplace. Would corporate development take 20 minutes to see a simulation smoke run and a P0-Critical investigation packet that still has `externalActionAllowed = false`?
 
 Nic Albertson  
 Full Stack Assets  
 hello@fullstackassets.com  
 One-pager attached.
 
+
 ---
 
 ## 2. Freelancer.com — Corporate Development / partnerships
 
+**To:** investor@freelancer.com  
 **Subject:** Read-only official-API demand kernel — bid governance without live bids
 
 Hello,
+
+Please forward this to corporate development or partnerships.
 
 OpportunityOS already has a read-only Freelancer.com official-API adapter that emits verified `buyer_opportunity` records and explicitly exposes no bid, message, milestone, or payment tools.
 
@@ -38,43 +44,53 @@ I am not asking to turn on writes. I am offering a carve-out of the Trust Kernel
 Nic Albertson  
 Full Stack Assets  
 hello@fullstackassets.com
+One-pager attached.
 
 ---
 
 ## 3. Upwork — Corporate Development
 
+**To:** investor@upwork.com  
 **Subject:** Fail-closed agentic pursuit kernel (no Upwork scraper) — brief for corp-dev
 
 Hello,
 
-I am not shipping an Upwork integration. I am offering a marketplace-neutral kernel that discovers, ranks, and investigates demand, then **stops** before outreach: payload-bound approvals, independent verification, and `externalActionAllowed = false`.
+Please forward this to Upwork corporate development or corporate strategy.
 
-Release `0.1.0-simulation` has no ARR; this would be an IP + founder conversation for an enterprise/compliance agent feature, not a freelance tool. 20 minutes with corporate development appreciated.
+I am not shipping an Upwork integration. I am offering a marketplace-neutral kernel that discovers, ranks, and investigates demand, then stops before outreach: payload-bound approvals, independent verification, and `externalActionAllowed = false`.
+
+Release 0.1.0-simulation has no ARR; this would be an IP + founder conversation for an enterprise/compliance agent feature, not a freelance tool. 20 minutes with corporate development appreciated.
 
 Nic Albertson  
 Full Stack Assets  
 hello@fullstackassets.com
+One-pager attached.
 
 ---
 
 ## 4. GitHub / Microsoft — Corporate Development
 
+**To:** Microsoft Investor Relations (https://www.microsoft.com/en-us/investor/contact-information) — ask them to route to GitHub / Copilot corporate development  
 **Subject:** Issue-to-WorkOrder governance (official Issues API, no writes)
 
 Hello,
 
+Please forward this to GitHub or Copilot corporate development / product strategy.
+
 OpportunityOS includes a read-only GitHub Issues official-API collector (PR-excluding, fail-closed health states, token never stored in receipts) plus a WorkOrder path that requires reuse preflight before new work.
 
-I would like 20 minutes with Microsoft/GitHub corporate development or Copilot/agent product strategy about a carve-out of that kernel (IP + founder), not a third-party bot that comments on issues.
+I would like 20 minutes about a carve-out of that kernel (IP + founder), not a third-party bot that comments on issues.
 
 Nic Albertson  
 Full Stack Assets  
 hello@fullstackassets.com
+One-pager attached.
 
 ---
 
 ## 5. OpenAI — Corporate Development / Applied
 
+**To:** Hold — no public corp-dev alias. Use only a named partnerships/corp-dev intro.  
 **Subject:** Trust Kernel for MCP/tool agents — human-gated writes, simulation-only today
 
 Hello,
@@ -86,11 +102,13 @@ I am exploring an IP + founder carve-out for teams that need provenance before t
 Nic Albertson  
 Full Stack Assets  
 hello@fullstackassets.com
+One-pager attached.
 
 ---
 
 ## 6. Anthropic — Corporate Development / Applied
 
+**To:** Hold — no public corp-dev alias. Use only a named partnerships/corp-dev intro.  
 **Subject:** Fail-closed tool-use kernel for MCP agents — carve-out conversation
 
 Hello,
@@ -102,6 +120,7 @@ I am not claiming production Claude deployment. I am offering the IP and founder
 Nic Albertson  
 Full Stack Assets  
 hello@fullstackassets.com
+One-pager attached.
 
 ---
 

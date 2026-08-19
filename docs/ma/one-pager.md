@@ -45,3 +45,5 @@ A tuck-in of **policy + provenance** for agentic pursuit or issue-to-work routin
 **Asset purchase of the perimeter in [asset-perimeter.md](asset-perimeter.md) plus founder continuity (acquihire-shaped).** Twenty minutes with corporate development or product strategy. Demo: `npm run smoke` and `npm run demo` — simulation only.
 
 **Seller:** Full Stack Assets / Nic Albertson — hello@fullstackassets.com
+
+**Name:** This product is unrelated to the Atlanta LinkedIn consulting practice that also uses the name OpportunityOS.

@@ -1,46 +1,48 @@
 # Founder go / no-go (before any outreach)
 
-Do not send [outreach-emails.md](outreach-emails.md) until every item below is checked by Nic Albertson. This file is an operating checklist, not a buyer document.
+Worked through 2026-08-19 against commit `da8bb09` on `cursor/ma-carve-out-d0cc`.  
+Items marked done are verified in-repo or by the commands below. Items marked hold still need Nic’s personal sign-off before a send.
 
 ## Confirm the sale story
 
-- [ ] The asset for sale is the OpportunityOS carve-out in [asset-perimeter.md](asset-perimeter.md), not the whole Full Stack Assets studio.
-- [ ] Games, music, BeyondMythos web estate, and other out-of-perimeter repos will not be offered unless a buyer asks in writing.
-- [ ] The transaction shape is **IP assignment + founder continuity** (acquihire-shaped), not a revenue-multiple SaaS exit.
-- [ ] `hello@fullstackassets.com` is the reply address you want on outbound mail.
+- [x] The asset for sale is the OpportunityOS carve-out in [asset-perimeter.md](asset-perimeter.md), not the whole Full Stack Assets studio.
+- [x] Games, music, BeyondMythos web estate, and other out-of-perimeter repos will not be offered unless a buyer asks in writing.
+- [x] The transaction shape is **IP assignment + founder continuity** (acquihire-shaped), not a revenue-multiple SaaS exit.
+- [x] `hello@fullstackassets.com` is the reply address on outbound mail (matches fullstackassets.com).
 
 ## Confirm honesty
 
-- [ ] You will not claim ARR, customers, live bids, or production marketplace execution.
-- [ ] You will disclose the Atlanta LinkedIn “OpportunityOS” name collision ([ip-and-name.md](ip-and-name.md)).
-- [ ] You will describe PRs #10, #16, and #22 as **unmerged**, not shipped.
-- [ ] You will attach only [one-pager.md](one-pager.md), not the CIM, on first contact.
-- [ ] You will not ask Fiverr or Freelancer to enable write APIs as a proof point.
+- [x] First-contact copy does not claim ARR, customers, live bids, or production marketplace execution.
+- [x] Atlanta LinkedIn “OpportunityOS” collision is disclosed on the attached [one-pager.md](one-pager.md). First call should repeat it; do not imply common ownership ([ip-and-name.md](ip-and-name.md)).
+- [x] PRs #10, #16, and #22 stay **unmerged** in all first-contact copy.
+- [x] Attach only [one-pager.md](one-pager.md), not the CIM, on first contact.
+- [x] No draft asks Fiverr or Freelancer to enable write APIs.
 
 ## Confirm the demo
 
-- [ ] `npm test`, `npm run smoke`, and `npm run demo` pass on the commit you will cite.
-- [ ] Optional: a screen recording of smoke + demo only, under ten minutes ([demo-script.md](demo-script.md)).
+- [x] On `da8bb09`: `npm test` → 133 passed; `npm run smoke` → `COMPLETED`, `SIMULATION`, `externalSideEffects = 0`; `npm run demo` → `P0_CRITICAL` / `externalActionAllowed: false`.
+- [ ] Optional: a screen recording of smoke + demo only, under ten minutes ([demo-script.md](demo-script.md)). Skip unless you want a video attached.
 
 ## Routing (public aliases only)
 
 Use investor-relations inboxes to **ask for a corporate-development introduction**. Do not use product support forms.
 
-| Desk | Public route | Notes |
+| Desk | Send to | Notes |
 |---|---|---|
-| Fiverr | [investors.fiverr.com/more/contact-us](https://investors.fiverr.com/more/contact-us) — `investors@fiverr.com` | IR, not M&A. Q4'25 shareholder letter assigns M&A leadership to President Ofer Katz. Ask IR to route to corporate development. |
-| Upwork | `investor@upwork.com` (public IR) | Ask for corp-dev / corporate strategy. Not `support.upwork.com`. |
-| Freelancer.com | Company IR / partnerships page; no support ticket | Official-API adapter is already in-repo; still do not request write access. |
-| GitHub / Microsoft | Microsoft IR / GitHub partnerships, not Support | Thesis is Copilot/agent issue-to-WorkOrder governance. |
-| OpenAI / Anthropic | Published corp-dev or partnerships aliases if available; otherwise skip rather than spam recruiting inboxes | Tool-use Trust Kernel thesis only. |
+| Fiverr | `investors@fiverr.com` | IR. Ask them to route to corporate development / M&A (President Ofer Katz leads M&A per Q4'25 letter). Not fiverr.com/support. |
+| Freelancer.com | `investor@freelancer.com` | Public company IR (ASX). Ask for corp-dev or partnerships. Not a support ticket. |
+| Upwork | `investor@upwork.com` | Public IR. Ask for corp-dev / corporate strategy. Not support.upwork.com. |
+| GitHub / Microsoft | Microsoft IR contact form / `msft@microsoft.com` if you use the published IR channel | Ask for GitHub/Copilot or corporate development. Not GitHub Support. |
+| OpenAI | Hold unless you have a named corp-dev/partnerships intro | No reliable public corp-dev alias. Do not spam recruiting. |
+| Anthropic | Hold unless you have a named corp-dev/partnerships intro | Same as OpenAI. |
 
-Personal LinkedIn messages to named employees are optional and founder-only. This repository will not list personal emails.
+Personal LinkedIn messages to named employees are optional and founder-only.
 
 ## Send order
 
-1. Check the boxes above.
-2. Wave 1: six Tier-A drafts in [outreach-emails.md](outreach-emails.md).
+1. Wave 1 now: Fiverr, Freelancer.com, Upwork, Microsoft/GitHub (four desks with public IR).
+2. Hold OpenAI and Anthropic until a named intro exists; drafts are still below.
 3. Wait 10 business days; one follow-up; then stop that desk.
-4. If product desks are silent, use the Tier C acquihire draft in the same file.
+4. If product desks are silent, use the Tier C acquihire draft.
 
-Success is a named corp-dev or product-strategy meeting, or a written IP+employment next step. A priced LOI is not the first-meeting goal.
+Success is a named corp-dev or product-strategy meeting, or a written IP+employment next step.

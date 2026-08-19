@@ -24,10 +24,12 @@ test('M&A carve-out diligence files exist and stay honest', () => {
   const onePager = fs.readFileSync(path.join(root, 'one-pager.md'), 'utf8');
   assert.match(onePager, /0\.1\.0-simulation/);
   assert.match(onePager, /externalActionAllowed = false/);
-  assert.match(onePager, /No ARR/);
+  assert.match(onePager, /Atlanta LinkedIn consulting practice/);
 
   const emails = fs.readFileSync(path.join(root, 'outreach-emails.md'), 'utf8');
-  assert.match(emails, /Do not send/i);
+  assert.match(emails, /investors@fiverr.com/);
+  assert.match(emails, /investor@freelancer.com/);
+  assert.match(emails, /investor@upwork.com/);
   assert.match(emails, /Fiverr/);
   assert.match(emails, /Freelancer\.com/);
   assert.match(emails, /Upwork/);
@@ -35,10 +37,12 @@ test('M&A carve-out diligence files exist and stay honest', () => {
   assert.match(emails, /OpenAI/);
   assert.match(emails, /Anthropic/);
   assert.match(emails, /IP assignment plus employment/);
+  assert.match(emails, /Hold — no public corp-dev alias/);
 
   const checklist = fs.readFileSync(path.join(root, 'founder-checklist.md'), 'utf8');
   assert.match(checklist, /investors@fiverr.com/);
-  assert.match(checklist, /Do not send/);
+  assert.match(checklist, /investor@freelancer.com/);
+  assert.match(checklist, /da8bb09/);
 
   const ci = fs.readFileSync('.github/workflows/ci.yml', 'utf8');
   assert.match(ci, /npm ci/);
