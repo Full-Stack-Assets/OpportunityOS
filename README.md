@@ -210,7 +210,9 @@ See `docs/commercial-intelligence-engine.md` for the complete runtime contract a
 - `database/migrations` — PostgreSQL canonical schema
 - `docs/architecture` — system boundaries, threat model, BuildGraph integration, operations, evidence
 - `docs/commercial-intelligence-engine.md` — Commercial Intelligence Engine runtime contract, policy thresholds, revalidation, and authority boundary
+- `docs/ma` — carve-out M&A diligence materials (not a claim of live execution, customers, or revenue)
 - `scripts/smoke.ts` — zero-external-side-effect release smoke check
+- `scripts/buyer-demo.ts` — simulation WorkOrder plus non-authorizing P0-Critical investigation packet
 
 ## Local verification
 
