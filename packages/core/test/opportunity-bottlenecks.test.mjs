@@ -125,3 +125,60 @@ test('current provider status manifest preserves live blockers and safe write bo
   assert.equal(manifest.providers.upwork.browser_automation, 'PROHIBITED');
   assert.equal(manifest.providers.fiverr.submit_application, 'MANUAL_ONLY');
 });
+
+test('prepare-only application packages are deterministic and provider-neutral', () => {
+  assert.equal(typeof core.prepareMarketplaceApplicationPackage, 'function');
+  const input = {
+    provider: 'upwork',
+    opportunityId: 'opp:upwork:123',
+    providerOpportunityId: '123',
+    listingFingerprint: 'listing:abc',
+    proposalText: 'I can implement the requested TypeScript API workflow and verify it against your acceptance criteria.',
+    attachmentHashes: ['sha256:resume'],
+    requiredFieldAnswers: {availability: '20 hours/week'},
+    actionIntentId: 'action:prepare:123',
+    evidenceRefs: ['listing:123', 'canon:resume:current'],
+    unsupportedClaims: [],
+    requiredClarifications: [],
+  };
+  const first = core.prepareMarketplaceApplicationPackage(input);
+  const second = core.prepareMarketplaceApplicationPackage(input);
+  assert.equal(first.state, 'PREPARED');
+  assert.equal(first.submissionAllowed, false);
+  assert.equal(first.package.provider, 'upwork');
+  assert.equal(first.package.packageHash, second.package.packageHash);
+  assert.equal(first.package.proposalTextHash, second.package.proposalTextHash);
+  assert.ok(first.package.idempotencyKey.startsWith('application:'));
+});
+
+test('prepare-only package escalates unsupported claims or unresolved required fields instead of producing a submit-ready payload', () => {
+  const result = core.prepareMarketplaceApplicationPackage({
+    provider: 'fiverr',
+    opportunityId: 'opp:fiverr:1',
+    providerOpportunityId: 'request:1',
+    listingFingerprint: 'listing:def',
+    proposalText: 'Prepared response.',
+    attachmentHashes: [],
+    requiredFieldAnswers: {},
+    actionIntentId: 'action:prepare:fiverr:1',
+    evidenceRefs: ['source:fiverr:request:1'],
+    unsupportedClaims: ['five years formal enterprise SaaS experience'],
+    requiredClarifications: ['budget currency'],
+  });
+  assert.equal(result.state, 'NEEDS_REVIEW');
+  assert.equal(result.package, null);
+  assert.equal(result.submissionAllowed, false);
+  assert.ok(result.reasons.includes('UNSUPPORTED_CLAIM'));
+  assert.ok(result.reasons.includes('REQUIRED_CLARIFICATION'));
+});
+
+test('persisted Human Authority template is non-executable until explicitly completed and authorized', () => {
+  const template = JSON.parse(fs.readFileSync(new URL('../../../config/auto-apply-policy.human-authority.template.json', import.meta.url), 'utf8'));
+  assert.equal(template.status, 'DRAFT');
+  assert.equal(template.enabled, false);
+  assert.equal(template.authorityRef, null);
+  assert.deepEqual(template.allowedProviders, []);
+  assert.equal(template.minimumCompensationCents, null);
+  assert.equal(template.minimumWinProbability, null);
+  assert.equal(template.maximumApplicationCostCents, null);
+});
