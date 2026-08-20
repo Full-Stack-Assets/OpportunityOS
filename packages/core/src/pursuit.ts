@@ -125,7 +125,7 @@ export interface ExecutionResult {
   reason?: string;
 }
 
-export interface VerificationResult {
+export interface PursuitVerificationResult {
   actionId: string;
   verified: boolean;
   status: PursuitExecutionStatus;
@@ -142,40 +142,23 @@ export interface PursuitExecutor {
 }
 
 export interface PursuitVerifier {
-  verify(application: PreparedApplication, execution: ExecutionResult): Promise<VerificationResult>;
+  verify(application: PreparedApplication, execution: ExecutionResult): Promise<PursuitVerificationResult>;
 }
 
 export const PURSUIT_EXECUTION_STATUSES = [
-  'SUBMITTED_VERIFIED',
-  'EXECUTED_UNVERIFIED',
-  'ALREADY_SUBMITTED',
-  'REJECTED_BY_PLATFORM',
-  'NEEDS_INPUT',
-  'NEEDS_HUMAN_AUTH',
-  'AUTH_REQUIRED',
-  'MFA_REQUIRED',
-  'CAPTCHA_REQUIRED',
-  'SESSION_EXPIRED',
-  'ACCOUNT_MISMATCH',
-  'PAYLOAD_CHANGED',
-  'COST_CHANGED',
-  'UNAVAILABLE_SENDER',
-  'UNAVAILABLE',
-  'FAILED',
+  'SUBMITTED_VERIFIED', 'EXECUTED_UNVERIFIED', 'ALREADY_SUBMITTED', 'REJECTED_BY_PLATFORM',
+  'NEEDS_INPUT', 'NEEDS_HUMAN_AUTH', 'AUTH_REQUIRED', 'MFA_REQUIRED', 'CAPTCHA_REQUIRED',
+  'SESSION_EXPIRED', 'ACCOUNT_MISMATCH', 'PAYLOAD_CHANGED', 'COST_CHANGED', 'UNAVAILABLE_SENDER',
+  'UNAVAILABLE', 'FAILED',
 ] as const;
 
 export type PursuitExecutionStatus = typeof PURSUIT_EXECUTION_STATUSES[number];
 
-const GROUNDED_CONVENIENCE_EVIDENCE = new Set<EvidenceClass>([
-  'VERIFIED_FACT',
-  'USER_ATTESTED_FACT',
-]);
+const GROUNDED_CONVENIENCE_EVIDENCE = new Set<EvidenceClass>(['VERIFIED_FACT', 'USER_ATTESTED_FACT']);
 
 function assertNonNegativeSafeInteger(value: number | undefined, fieldName: string): void {
   if (value === undefined) return;
-  if (!Number.isSafeInteger(value) || value < 0) {
-    throw new Error(`${fieldName} must be a non-negative safe integer`);
-  }
+  if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${fieldName} must be a non-negative safe integer`);
 }
 
 function assertGroundedConvenienceField(
@@ -185,31 +168,22 @@ function assertGroundedConvenienceField(
   convenienceName: 'availability' | 'workAuthorizationStatus',
 ): void {
   if (convenienceValue === undefined) return;
-
-  const grounded = input.answers.some((candidate) => (
-    candidate.fieldKey === fieldKey
+  const grounded = input.answers.some((candidate) => candidate.fieldKey === fieldKey
     && GROUNDED_CONVENIENCE_EVIDENCE.has(candidate.evidenceClass)
     && typeof candidate.answer === 'string'
-    && candidate.answer === convenienceValue
-  ));
-
-  if (!grounded) {
-    throw new Error(`${convenienceName} must exactly mirror a grounded ${fieldKey} answer`);
-  }
+    && candidate.answer === convenienceValue);
+  if (!grounded) throw new Error(`${convenienceName} must exactly mirror a grounded ${fieldKey} answer`);
 }
 
 export function compilePreparedApplication(input: PreparedApplicationInput): PreparedApplication {
   assertNonNegativeSafeInteger(input.expectedCost.amountMinor, 'expectedCost.amountMinor');
   assertNonNegativeSafeInteger(input.expectedCost.credits, 'expectedCost.credits');
-
   const preparedAt = Date.parse(input.preparedAt);
   const expiresAt = Date.parse(input.expiresAt);
   if (!Number.isFinite(preparedAt)) throw new Error('preparedAt must be parseable date text');
   if (!Number.isFinite(expiresAt)) throw new Error('expiresAt must be parseable date text');
   if (expiresAt <= preparedAt) throw new Error('expiresAt must be later than preparedAt');
-
   assertGroundedConvenienceField(input, 'availability', input.availability, 'availability');
   assertGroundedConvenienceField(input, 'work_authorization', input.workAuthorizationStatus, 'workAuthorizationStatus');
-
   return { ...input, payloadHash: hashCanonical(input) };
 }
