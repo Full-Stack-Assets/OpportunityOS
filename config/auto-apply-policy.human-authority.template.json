@@ -1,0 +1,28 @@
+{
+  "schema_version": "auto-apply-policy/v1",
+  "policyId": "human-authority-opportunity-autoapply-v1",
+  "status": "DRAFT",
+  "authorityRef": null,
+  "enabled": false,
+  "allowedProviders": [],
+  "minimumCompensationCents": null,
+  "minimumSkillFit": null,
+  "minimumWinProbability": null,
+  "minimumCandidacyConfidence": null,
+  "maximumApplicationCostCents": null,
+  "dailySubmissionLimit": null,
+  "perPlatformDailyLimit": null,
+  "human_authority_instructions": {
+    "purpose": "Populate only with values explicitly approved by Human Authority. This template is intentionally non-executable until every required value is supplied and status is changed to AUTHORIZED with a Canon approval reference.",
+    "authorityRef": "Set to the immutable Canon approval identifier for this exact policy envelope.",
+    "allowedProviders": "List only providers explicitly approved for autonomous submission. Provider policy and connector capability still override this allowlist.",
+    "minimumCompensationCents": "Set the minimum guaranteed or otherwise policy-approved compensation in integer cents.",
+    "minimumSkillFit": "Set a value from 0 to 1.",
+    "minimumWinProbability": "Set a value from 0 to 1.",
+    "minimumCandidacyConfidence": "Set a value from 0 to 1.",
+    "maximumApplicationCostCents": "Set the maximum per-application financial commitment in integer cents. Zero forbids paid applications.",
+    "dailySubmissionLimit": "Set the total maximum autonomous submissions per day.",
+    "perPlatformDailyLimit": "Set the maximum autonomous submissions per provider per day.",
+    "activation": "After review, set status to AUTHORIZED and enabled to true. Never reuse an authorityRef after changing any material threshold or provider rule."
+  }
+}

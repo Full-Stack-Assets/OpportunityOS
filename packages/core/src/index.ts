@@ -23,3 +23,6 @@ export * from './commercial-winability.ts';
 export * from './commercial-priority.ts';
 export * from './opportunity-revalidation.ts';
 export * from './critical-investigation.ts';
+export * from './opportunity-pipeline-policy.ts';
+export * from './connector-execution.ts';
+export * from './opportunity-bottlenecks.ts';

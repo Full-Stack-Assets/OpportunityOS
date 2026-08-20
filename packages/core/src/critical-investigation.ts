@@ -34,6 +34,10 @@ import {
   assessOpportunityRevalidation,
   type RevalidationAssessment,
 } from './opportunity-revalidation.ts';
+import {
+  classifyPursuitTier,
+  type PursuitTierAssessment,
+} from './opportunity-pipeline-policy.ts';
 
 export type InvestigationTaskKind =
   | 'REVALIDATE_SOURCE'
@@ -67,6 +71,7 @@ export interface CriticalInvestigationPacket {
   commercialValue: CommercialValueReport;
   eligibility: EligibilityAssessment;
   winProbability: WinProbabilityEstimate;
+  pursuitTier: PursuitTierAssessment;
   pursuitEconomics: PursuitEconomics;
   revalidation: RevalidationAssessment;
   falsificationQuestions: string[];
@@ -296,6 +301,13 @@ export function buildCommercialInvestigation(input: CommercialInvestigationInput
     hardDisqualifiers: eligibility.hardDisqualifiers,
     evidenceRefs: winEvidenceRefs,
   });
+  const pursuitTier = classifyPursuitTier({
+    eligibilityState: eligibility.state,
+    winProbability: winProbability.probability,
+    confidence: winProbability.confidence,
+    unresolvedClarifications: eligibility.missingEvidence,
+    hardExclusions: eligibility.hardDisqualifiers,
+  });
   const pursuitEconomics = calculatePursuitEconomics({
     contractValue: commercialValue.contractValue,
     winProbability: winProbability.probability,
@@ -399,6 +411,7 @@ export function buildCommercialInvestigation(input: CommercialInvestigationInput
     commercialValue,
     eligibility,
     winProbability,
+    pursuitTier,
     pursuitEconomics,
     revalidation,
     falsificationQuestions: falsificationQuestions(priorityResult.priority, priorityResult.criticalReason),
