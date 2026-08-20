@@ -2,291 +2,190 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a production-safe, authenticated write path that can submit verified applications/bids through official APIs first and browser-assisted execution second, without weakening OpportunityOS authorization, evidence, simulation, or receipt guarantees.
+**Goal:** Add a safe authenticated write path for verified applications/bids using official APIs first and browser-assisted execution second.
 
-**Architecture:** Keep discovery/source connectors read-only. Compile every pursuit into a canonical evidence-aware `PreparedApplication`, bind authorization to its canonical hash, route through a scoped executor, independently verify the external result, and persist a chained receipt. Implement the first official API write through Freelancer's documented bid API and the first browser family through a generic ATS Playwright executor, while preserving `SIMULATION` and adding `LIVE_INSPECT` before any canary write.
+**Architecture:** Discovery adapters stay read-only. A canonical `PreparedApplication` is evidence-checked, hashed, authorized through the existing Trust Kernel, routed to an API/browser executor, independently verified, and persisted with an idempotent chained receipt. Freelancer is the first API write; a generic ATS Playwright adapter is the first browser family.
 
-**Tech Stack:** Node.js >=22.13, TypeScript 6, existing `@opportunityos/core` Trust Kernel, PostgreSQL, Python 3 + `requests`/MCP for Freelancer, Playwright for browser execution, Node `crypto` AES-256-GCM for encrypted credential/session blobs.
+**Tech Stack:** Node.js >=22.13, TypeScript 6, PostgreSQL, existing `@opportunityos/core`, Python 3 + `requests`/MCP, Playwright, Node `crypto` AES-256-GCM.
 
 **Spec:** `docs/superpowers/specs/2026-08-20-write-capable-authenticated-pursuit-path-design.md`
 
 ## Global Constraints
-
 - Preserve `SOURCE -> FACT -> POLICY -> APPROVAL -> ACTION -> VERIFICATION -> RECEIPT`.
-- Existing source connectors remain read-oriented; writes live behind a separate pursuit-execution boundary.
-- Execution modes are exactly `SIMULATION`, `LIVE_INSPECT`, and `LIVE_AUTHORIZED`.
-- No CAPTCHA solving, MFA bypass, stealth/fingerprint evasion, automated account recovery, or undocumented private API use.
-- Authentication proves identity, not authority; every write still requires payload-bound authorization.
-- No raw tokens, cookies, passwords, MFA material, or protected demographic answers in Git, model-visible payloads, logs, or receipts.
-- Costs use integer minor units; no floating-point money.
-- A write executor cannot self-verify. `SUBMITTED_VERIFIED` requires independent durable evidence.
-- `EXECUTED_UNVERIFIED` never auto-retries; it enters reconciliation first.
-- New monetary purchases, Connects/bid-token purchases, contract acceptance, payout actions, and account-security changes remain denied by default.
-- Outbound pursuit email remains disabled unless `From: nicholas@fullstackassets.com` can be verified by the sending provider.
-- Existing simulation tests and `externalSideEffects: 0` semantics must remain unchanged.
+- Modes are exactly `SIMULATION`, `LIVE_INSPECT`, `LIVE_AUTHORIZED`.
+- No CAPTCHA/MFA/security-control bypass; challenge states halt.
+- Authentication never implies authority; writes require payload-bound approval.
+- No secrets in Git, logs, model-visible payloads, or receipts.
+- Money is integer minor units only.
+- Executor cannot self-verify; `EXECUTED_UNVERIFIED` reconciles before retry.
+- New spend, contract acceptance, payout/account-security actions remain denied.
+- Email remains blocked unless `nicholas@fullstackassets.com` is verified as sender.
+- Existing simulation semantics and tests remain unchanged.
 
 ---
 
-## File Structure
+### Task 1: Canonical pursuit contracts and compiler
 
-### Core contracts and policy
-- Create `packages/core/src/pursuit.ts` — canonical application, live-form, execution, verification, and status contracts.
-- Create `packages/core/src/pursuit-policy.ts` — evidence/attestation gates, cost checks, live-form diffing, and submission eligibility.
-- Create `packages/core/src/pursuit-gateway.ts` — payload-bound authorization, execution-mode enforcement, idempotency/reconciliation decisions, receipt construction.
-- Modify `packages/core/src/index.ts` — export the new contracts.
-- Create `packages/core/test/pursuit.test.mjs`, `pursuit-policy.test.mjs`, `pursuit-gateway.test.mjs`.
+**Files:** Create `packages/core/src/pursuit.ts`; modify `packages/core/src/index.ts`; test `packages/core/test/pursuit.test.mjs`.
 
-### Durable pursuit state
-- Create `database/migrations/002_pursuit_execution.sql` — prepared applications, attempts, verification evidence, idempotency keys, encrypted secret metadata references.
-- Create `packages/postgres/src/pursuit-store.ts` — persistence interface for prepared applications, attempts, reconciliation, and receipts.
-- Modify `packages/postgres/src/index.ts`.
-- Create `packages/postgres/test/pursuit-store.test.mjs`.
+**Interfaces:** Produces `ExecutionMode`, `EvidenceClass`, `AttestationClass`, `PreparedAnswer`, `PreparedApplication`, `FormField`, `FormSchema`, `PursuitTarget`, `ExecutionResult`, `VerificationResult`, `PursuitExecutionStatus`, `compilePreparedApplication()`.
 
-### Authenticated execution package
-- Create `packages/pursuit-execution/package.json`, `tsconfig.json`, `src/index.ts`.
-- Create `packages/pursuit-execution/src/encrypted-store.ts` — AES-256-GCM envelope storage for credential/session blobs.
-- Create `packages/pursuit-execution/src/credential-broker.ts` — opaque API credential references and scopes.
-- Create `packages/pursuit-execution/src/session-broker.ts` — opaque browser-session references and account verification metadata.
-- Create `packages/pursuit-execution/src/router.ts` — API-first executor selection.
-- Create `packages/pursuit-execution/src/verifier.ts` — independent verifier registry.
-- Create `packages/pursuit-execution/test/*.test.mjs`.
-
-### Browser executor
-- Create `packages/pursuit-execution/src/browser/field-classifier.ts`.
-- Create `packages/pursuit-execution/src/browser/challenge-detector.ts`.
-- Create `packages/pursuit-execution/src/browser/ats-executor.ts`.
-- Create `packages/pursuit-execution/src/browser/providers/{generic,ashby,lever,greenhouse}.ts`.
-- Create `packages/pursuit-execution/test/fixtures/*.html` for normal, changed-field, CAPTCHA, MFA, account-mismatch, cost-change, and confirmation flows.
-
-### Freelancer official API executor
-- Keep `connectors/freelancer/freelancer_mcp_server.py` read-only.
-- Create `connectors/freelancer/freelancer_pursuit_server.py` — authenticated bid inspect/submit/verify tools only.
-- Create `connectors/freelancer/tests/test_freelancer_pursuit_server.py`.
-- Modify `connectors/freelancer/README.md` and `requirements.txt` only if a new dependency is actually required; prefer existing `requests`.
-
-### Runtime and operator surfaces
-- Modify `apps/worker/src/main.ts` — add pursuit job dispatch without changing simulation behavior.
-- Create `apps/control-plane/app/api/pursuits/inspect/route.ts` and `apps/control-plane/app/api/pursuits/status/route.ts` — inspection/status only; no browser-side secret exposure.
-- Create `scripts/pursuit-canary.ts` — Gate A/B/C canary harness with explicit mode and approval requirements.
-- Modify `.env.example`, root `package.json`, and relevant workspace package files.
-
----
-
-### Task 1: Canonical pursuit contracts and application compiler
-
-**Files:**
-- Create: `packages/core/src/pursuit.ts`
-- Modify: `packages/core/src/index.ts`
-- Test: `packages/core/test/pursuit.test.mjs`
-
-**Interfaces:**
-- Produces: `ExecutionMode`, `EvidenceClass`, `AttestationClass`, `PreparedAnswer`, `PreparedApplication`, `FormField`, `FormSchema`, `PursuitTarget`, `AuthorizedPursuitAction`, `ExecutionResult`, `VerificationResult`, `PursuitExecutionStatus`, `compilePreparedApplication()`.
-- Consumes: `hashCanonical()` from `packages/core/src/canonical.ts`.
-
-- [ ] **Step 1: Write the failing compiler tests**
-
+- [ ] **Step 1: Write failing compiler tests**
 ```js
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { compilePreparedApplication } from '../dist/pursuit.js';
-
-test('compiler hashes the exact canonical application payload', () => {
-  const app = compilePreparedApplication({
-    opportunityId: 'opp-1', pursuitId: 'p-1', targetPlatform: 'freelancer',
-    targetUrl: 'https://www.freelancer.com/projects/123', applicantIdentityRef: 'applicant:nicholas',
-    answers: [{ fieldKey: 'degree', prompt: 'Degree?', answer: 'Current undergraduate', sourceOfTruthRef: 'canon:education', confidence: 'HIGH', evidenceClass: 'VERIFIED_FACT', attestationClass: 'ORDINARY' }],
-    portfolioRefs: ['github:Full-Stack-Assets/OpportunityOS'],
-    expectedCost: { amountMinor: 0, currency: 'USD', credits: 0, requiresPurchase: false },
-    requiredUploads: [], preparedAt: '2026-08-20T05:00:00Z', expiresAt: '2026-08-20T06:00:00Z',
-  });
-  assert.match(app.payloadHash, /^[a-f0-9]{64}$/);
-});
-
-test('compiler rejects floating point money', () => {
-  assert.throws(() => compilePreparedApplication({ /* valid fixture */ expectedCost: { amountMinor: 12.5, currency: 'USD', requiresPurchase: false } }), /amountMinor/);
-});
+const app = compilePreparedApplication(validInput);
+assert.match(app.payloadHash, /^[a-f0-9]{64}$/);
+assert.throws(() => compilePreparedApplication({ ...validInput, expectedCost: { amountMinor: 12.5, currency: 'USD', requiresPurchase: false } }), /amountMinor/);
 ```
-
-- [ ] **Step 2: Run the focused test and confirm failure**
-
-Run: `npm run build:core && node --test packages/core/test/pursuit.test.mjs`
-Expected: FAIL because `../dist/pursuit.js` does not exist.
-
-- [ ] **Step 3: Implement the contracts and compiler**
-
+- [ ] **Step 2: Verify red** — `npm run build:core && node --test packages/core/test/pursuit.test.mjs`; expect missing module/failing validation.
+- [ ] **Step 3: Implement compiler**
 ```ts
-export type ExecutionMode = 'SIMULATION' | 'LIVE_INSPECT' | 'LIVE_AUTHORIZED';
-export type EvidenceClass = 'VERIFIED_FACT' | 'USER_ATTESTED_FACT' | 'DERIVED_NONCONSEQUENTIAL' | 'PROPOSED_WORK' | 'UNRESOLVED' | 'PROHIBITED_TO_INFER';
-export type AttestationClass = 'ORDINARY' | 'COMPENSATION' | 'AVAILABILITY' | 'LEGAL' | 'DEMOGRAPHIC_EEO' | 'BACKGROUND_CHECK' | 'RELOCATION_TRAVEL' | 'PUBLICATION_VIDEO_WORK_SAMPLE';
-
+export type ExecutionMode = 'SIMULATION'|'LIVE_INSPECT'|'LIVE_AUTHORIZED';
 export function compilePreparedApplication(input: PreparedApplicationInput): PreparedApplication {
-  if (input.expectedCost.amountMinor !== undefined && !Number.isSafeInteger(input.expectedCost.amountMinor)) {
-    throw new Error('expectedCost.amountMinor must be an integer minor-unit value');
-  }
-  const withoutHash = { ...input };
-  return { ...withoutHash, payloadHash: hashCanonical(withoutHash) };
+  if (input.expectedCost.amountMinor !== undefined && !Number.isSafeInteger(input.expectedCost.amountMinor)) throw new Error('expectedCost.amountMinor must be integer minor units');
+  return { ...input, payloadHash: hashCanonical(input) };
 }
 ```
+Implement the remaining interfaces exactly from the approved spec; top-level availability/work-authorization convenience fields may only mirror evidenced answers.
+- [ ] **Step 4: Export and verify green** — add `export * from './pursuit.ts';`; rerun focused test, expect PASS.
+- [ ] **Step 5: Commit** — `git commit -am "feat(core): add pursuit application contracts"` after staging new files.
 
-Define the remaining interfaces exactly as approved in the spec, including `PursuitExecutionStatus` with `NEEDS_INPUT` and all challenge/failure states.
+### Task 2: Evidence, form-diff, and cost policy
 
-- [ ] **Step 4: Export and run tests**
+**Files:** Create `packages/core/src/pursuit-policy.ts`; modify `packages/core/src/index.ts`; test `packages/core/test/pursuit-policy.test.mjs`.
 
-Add `export * from './pursuit.ts';` to `packages/core/src/index.ts`.
-Run: `npm run build:core && node --test packages/core/test/pursuit.test.mjs`
-Expected: PASS.
+**Interfaces:** Produces `answerMayAutoFill()`, `diffLiveForm()`, `evaluateSubmissionPolicy()`.
 
-- [ ] **Step 5: Commit**
-
-```bash
-git add packages/core/src/pursuit.ts packages/core/src/index.ts packages/core/test/pursuit.test.mjs
-git commit -m "feat(core): add canonical pursuit application contracts"
-```
-
-### Task 2: Evidence, attestation, form-diff, and cost policy
-
-**Files:**
-- Create: `packages/core/src/pursuit-policy.ts`
-- Modify: `packages/core/src/index.ts`
-- Test: `packages/core/test/pursuit-policy.test.mjs`
-
-**Interfaces:**
-- Consumes: `PreparedApplication`, `FormSchema`, `PreparedAnswer`.
-- Produces: `validatePreparedApplication(app)`, `diffLiveForm(app, form)`, `evaluateSubmissionPolicy(app, form, mode)`.
-
-- [ ] **Step 1: Write fail-closed tests**
-
+- [ ] **Step 1: Write failing policy tests**
 ```js
-test('required unresolved legal answer blocks submission', () => {
-  const result = evaluateSubmissionPolicy(appWithUnresolvedWorkAuth, workAuthForm, 'LIVE_AUTHORIZED');
-  assert.deepEqual(result, { allowed: false, status: 'NEEDS_INPUT', reason: 'REQUIRED_FIELD_UNRESOLVED:work_authorization' });
-});
-
-test('new purchase blocks submission', () => {
-  const result = evaluateSubmissionPolicy(appRequiringPurchase, baseForm, 'LIVE_AUTHORIZED');
-  assert.equal(result.status, 'COST_CHANGED');
-});
-
-test('LIVE_INSPECT never permits submit', () => {
-  assert.equal(evaluateSubmissionPolicy(validApp, baseForm, 'LIVE_INSPECT').canExecuteWrite, false);
-});
+assert.equal(evaluateSubmissionPolicy(appWithUnresolvedLegal, form, 'LIVE_AUTHORIZED').status, 'NEEDS_INPUT');
+assert.equal(evaluateSubmissionPolicy(appRequiringPurchase, form, 'LIVE_AUTHORIZED').status, 'COST_CHANGED');
+assert.equal(evaluateSubmissionPolicy(validApp, form, 'LIVE_INSPECT').canExecuteWrite, false);
 ```
-
-- [ ] **Step 2: Run and confirm failure**
-
-Run: `npm run build:core && node --test packages/core/test/pursuit-policy.test.mjs`
-Expected: FAIL because policy module is absent.
-
-- [ ] **Step 3: Implement explicit blocking classes**
-
+- [ ] **Step 2: Verify red** — build + run the test; expect FAIL.
+- [ ] **Step 3: Implement fail-closed rules**
 ```ts
-const HUMAN_ONLY = new Set<AttestationClass>([
-  'LEGAL', 'BACKGROUND_CHECK', 'RELOCATION_TRAVEL', 'PUBLICATION_VIDEO_WORK_SAMPLE',
-]);
-
-export function answerMayAutoFill(answer: PreparedAnswer): boolean {
-  if (answer.evidenceClass === 'UNRESOLVED' || answer.evidenceClass === 'PROHIBITED_TO_INFER') return false;
-  if (HUMAN_ONLY.has(answer.attestationClass)) return false;
-  return answer.confidence !== 'LOW';
+export function answerMayAutoFill(a: PreparedAnswer) {
+  if (['UNRESOLVED','PROHIBITED_TO_INFER'].includes(a.evidenceClass)) return false;
+  if (['LEGAL','BACKGROUND_CHECK','RELOCATION_TRAVEL','PUBLICATION_VIDEO_WORK_SAMPLE'].includes(a.attestationClass)) return false;
+  return a.confidence !== 'LOW';
 }
 ```
+Require exact required-field coverage, reject changed/new consequential fields, reject expired payloads and unexpected cost/credit changes.
+- [ ] **Step 4: Verify green** — `npm run build:core && node --test packages/core/test/pursuit-policy.test.mjs packages/core/test/core.test.mjs`.
+- [ ] **Step 5: Commit** — `feat(core): enforce pursuit evidence policy`.
 
-Implement exact live-field key comparison, required-field detection, cost comparison, and payload-expiry checks. Never infer a replacement answer for a changed form.
+### Task 3: Action Gateway, idempotency, reconciliation, receipts
 
-- [ ] **Step 4: Run focused and core tests**
+**Files:** Create `packages/core/src/pursuit-gateway.ts`; modify `packages/core/src/index.ts`; test `packages/core/test/pursuit-gateway.test.mjs`.
 
-Run: `npm run build:core && node --test packages/core/test/pursuit-policy.test.mjs packages/core/test/core.test.mjs`
-Expected: PASS.
+**Interfaces:** Consumes existing `authorizeAction()`/`chainReceipt()`; produces `createPursuitIntent()`, `createIdempotencyKey()`, `authorizePursuitAction()`, `decideRetry()`, receipt builders.
 
-- [ ] **Step 5: Commit**
-
-```bash
-git add packages/core/src/pursuit-policy.ts packages/core/src/index.ts packages/core/test/pursuit-policy.test.mjs
-git commit -m "feat(core): enforce pursuit evidence and form policy"
-```
-
-### Task 3: Action Gateway, idempotency, and reconciliation
-
-**Files:**
-- Create: `packages/core/src/pursuit-gateway.ts`
-- Modify: `packages/core/src/index.ts`
-- Test: `packages/core/test/pursuit-gateway.test.mjs`
-
-**Interfaces:**
-- Consumes: existing `authorizeAction()`, `chainReceipt()`, `PreparedApplication`, `Approval`.
-- Produces: `createPursuitIntent(app, route)`, `createIdempotencyKey(app, accountRef, actionType)`, `authorizePursuitAction()`, `decideRetry()`.
-
-- [ ] **Step 1: Write tests proving payload mutation and ambiguous execution fail closed**
-
+- [ ] **Step 1: Write failing tests**
 ```js
-test('approval for old payload cannot authorize mutated application', async () => {
-  const result = await authorizePursuitAction(mutatedApp, oldApproval, route, now, async () => true);
-  assert.equal(result.authorized, false);
-  assert.equal(result.reason, 'PAYLOAD_HASH_MISMATCH');
-});
-
-test('executed-unverified never retries automatically', () => {
-  assert.deepEqual(decideRetry('EXECUTED_UNVERIFIED'), { retry: false, reconcile: true });
-});
+assert.equal((await authorizePursuitAction(mutatedApp, oldApproval, route, now, verify)).reason, 'PAYLOAD_HASH_MISMATCH');
+assert.deepEqual(decideRetry('EXECUTED_UNVERIFIED'), { retry:false, reconcile:true });
 ```
-
-- [ ] **Step 2: Run and confirm failure**
-
-Run: `npm run build:core && node --test packages/core/test/pursuit-gateway.test.mjs`
-Expected: FAIL.
-
-- [ ] **Step 3: Implement gateway using the existing Trust Kernel**
-
+- [ ] **Step 2: Verify red**.
+- [ ] **Step 3: Implement without duplicating Trust Kernel**
 ```ts
-export function createIdempotencyKey(app: PreparedApplication, accountRef: string, actionType: string): string {
-  return hashCanonical({ platform: app.targetPlatform, accountRef, opportunityId: app.opportunityId, payloadHash: app.payloadHash, actionType });
-}
-
-export function createPursuitIntent(app: PreparedApplication, route: PursuitRoute): ActionIntent {
-  return { id: `${app.pursuitId}:submit`, actionType: 'SUBMIT_PURSUIT', payload: { application: app, route } };
-}
+export const createIdempotencyKey = (app, accountRef, actionType) => hashCanonical({ platform:app.targetPlatform, accountRef, opportunityId:app.opportunityId, payloadHash:app.payloadHash, actionType });
+export const createPursuitIntent = (app, route) => ({ id:`${app.pursuitId}:submit`, actionType:'SUBMIT_PURSUIT', payload:{ application:app, route } });
 ```
+Authorization calls existing `authorizeAction()`. Receipt evidence contains IDs/hashes/status/cost only, never secrets.
+- [ ] **Step 4: Verify green** with gateway + core tests.
+- [ ] **Step 5: Commit** — `feat(core): add pursuit action gateway`.
 
-Call existing `authorizeAction()`; do not duplicate signature or expiry logic. Add chained authorization/execution/verification receipt builders whose evidence excludes secrets.
+### Task 4: Durable pursuit execution store
 
-- [ ] **Step 4: Run tests**
+**Files:** Create `database/migrations/002_pursuit_execution.sql`, `packages/postgres/src/pursuit-store.ts`, `packages/postgres/test/pursuit-store.test.mjs`; modify `packages/postgres/src/index.ts`.
 
-Run: `npm run build:core && node --test packages/core/test/pursuit-gateway.test.mjs packages/core/test/core.test.mjs`
-Expected: PASS.
+**Interfaces:** `savePreparedApplication()`, `beginAttempt()`, `recordExecution()`, `recordVerification()`, `findByIdempotencyKey()`, `markReconciliationRequired()`, `appendReceipt()`.
 
-- [ ] **Step 5: Commit**
-
-```bash
-git add packages/core/src/pursuit-gateway.ts packages/core/src/index.ts packages/core/test/pursuit-gateway.test.mjs
-git commit -m "feat(core): add authorized pursuit action gateway"
-```
-
-### Task 4: Durable pursuit state and receipt persistence
-
-**Files:**
-- Create: `database/migrations/002_pursuit_execution.sql`
-- Create: `packages/postgres/src/pursuit-store.ts`
-- Modify: `packages/postgres/src/index.ts`
-- Test: `packages/postgres/test/pursuit-store.test.mjs`
-
-**Interfaces:**
-- Produces: `PursuitStore.savePreparedApplication`, `beginAttempt`, `recordExecution`, `recordVerification`, `findByIdempotencyKey`, `markReconciliationRequired`, `appendReceipt`.
-
-- [ ] **Step 1: Add migration with uniqueness and redaction-friendly columns**
-
+- [ ] **Step 1: Write migration**
 ```sql
-CREATE TABLE pursuit_applications (
-  pursuit_id TEXT PRIMARY KEY,
-  opportunity_id TEXT NOT NULL,
-  platform TEXT NOT NULL,
-  payload_hash TEXT NOT NULL,
-  application_json JSONB NOT NULL,
-  prepared_at TIMESTAMPTZ NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL
-);
-CREATE TABLE pursuit_attempts (
-  action_id TEXT PRIMARY KEY,
-  pursuit_id TEXT NOT NULL REFERENCES pursuit_applications(pursuit_id),
-  idempotency_key TEXT NOT NULL UNIQUE,
-  account_ref TEXT NOT NULL,
-  executor_type TEXT
+CREATE TABLE pursuit_applications (pursuit_id TEXT PRIMARY KEY, opportunity_id TEXT NOT NULL, platform TEXT NOT NULL, payload_hash TEXT NOT NULL, application_json JSONB NOT NULL, prepared_at TIMESTAMPTZ NOT NULL, expires_at TIMESTAMPTZ NOT NULL);
+CREATE TABLE pursuit_attempts (action_id TEXT PRIMARY KEY, pursuit_id TEXT NOT NULL REFERENCES pursuit_applications(pursuit_id), idempotency_key TEXT NOT NULL UNIQUE, account_ref TEXT NOT NULL, executor_type TEXT NOT NULL, status TEXT NOT NULL, external_id TEXT, reconciliation_required BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL);
+CREATE TABLE pursuit_receipts (receipt_hash TEXT PRIMARY KEY, action_id TEXT NOT NULL, previous_receipt_hash TEXT, receipt_json JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL);
+```
+- [ ] **Step 2: Write failing store tests** proving duplicate idempotency keys are rejected and `EXECUTED_UNVERIFIED` persists `reconciliation_required=true`.
+- [ ] **Step 3: Implement parameterized SQL store**; never persist credential/session bodies.
+- [ ] **Step 4: Verify** — `npm run build --workspace @opportunityos/postgres && node --test packages/postgres/test/*.test.mjs`.
+- [ ] **Step 5: Commit** — `feat(postgres): persist pursuit execution state`.
+
+### Task 5: Credential and Session Brokers with encrypted storage
+
+**Files:** Create `packages/pursuit-execution/{package.json,tsconfig.json,src/index.ts,src/encrypted-store.ts,src/credential-broker.ts,src/session-broker.ts}` and tests under `packages/pursuit-execution/test/`.
+
+**Interfaces:** `EncryptedStore.put/get/delete`; `CredentialBroker.resolve(ref, action)`; `SessionBroker.resolve(ref, action)`; both return opaque metadata + in-process secret material only to executors.
+
+- [ ] **Step 1: Add workspace package** depending on `@opportunityos/core`; dev-depend on Playwright later in Task 7.
+- [ ] **Step 2: Write failing encryption/scope tests**: ciphertext must not contain plaintext token; wrong key must fail; denied action scope must return `NEEDS_HUMAN_AUTH`; account mismatch must return `ACCOUNT_MISMATCH`.
+- [ ] **Step 3: Implement AES-256-GCM envelope**
+```ts
+const iv=randomBytes(12); const cipher=createCipheriv('aes-256-gcm', key, iv); const ciphertext=Buffer.concat([cipher.update(plain),cipher.final()]); const tag=cipher.getAuthTag();
+```
+Require a 32-byte key decoded from `PURSUIT_SECRET_KEY_BASE64`; refuse startup if malformed. Store browser `storageState` encrypted, not a persistent plaintext profile directory.
+- [ ] **Step 4: Implement broker scope/account checks** before returning secret material.
+- [ ] **Step 5: Verify** — build package + run its tests; then commit `feat(execution): add credential and session brokers`.
+
+### Task 6: Executor router and independent verifier registry
+
+**Files:** Create `packages/pursuit-execution/src/router.ts`, `src/verifier.ts`; tests `router.test.mjs`, `verifier.test.mjs`.
+
+**Interfaces:** `PursuitExecutor.inspect/validate/execute`; separate `PursuitVerifier.verify`; `routeExecutor(capabilities)` prefers official API.
+
+- [ ] **Step 1: Write failing tests** proving API beats browser, `LIVE_INSPECT` cannot call execute, and executor `success:true` alone cannot yield `SUBMITTED_VERIFIED`.
+- [ ] **Step 2: Implement route order** `official_api -> browser -> UNAVAILABLE` and enforce mode at the router boundary.
+- [ ] **Step 3: Implement verifier registry** accepting durable external IDs/dashboard/confirmation evidence; screenshot-only evidence remains insufficient when a durable identifier is expected.
+- [ ] **Step 4: Verify package tests**.
+- [ ] **Step 5: Commit** — `feat(execution): route and independently verify pursuit writes`.
+
+### Task 7: Generic ATS Playwright executor
+
+**Files:** Create `packages/pursuit-execution/src/browser/{field-classifier.ts,challenge-detector.ts,ats-executor.ts}`, provider files `providers/{generic,ashby,lever,greenhouse}.ts`, fixtures/tests; modify package dependency to `playwright`.
+
+**Interfaces:** `classifyField()`, `detectChallenge(page)`, `AtsExecutor.inspect/validate/execute`.
+
+- [ ] **Step 1: Create local HTML fixtures** for normal form, added legal field, CAPTCHA text/iframe marker, MFA/password challenge, account mismatch, cost change, timeout-after-submit, confirmation with application ID.
+- [ ] **Step 2: Write failing browser tests**: CAPTCHA=>`CAPTCHA_REQUIRED`; MFA=>`MFA_REQUIRED`; added required legal field=>`PAYLOAD_CHANGED`/`NEEDS_INPUT`; `LIVE_INSPECT` fills nothing and submits nothing; confirmation ID is returned as execution evidence.
+- [ ] **Step 3: Implement semantic field classifier** using label/name/type/autocomplete text; provider modules only map provider DOM to canonical `FormSchema`, never invent answers.
+- [ ] **Step 4: Implement challenge detection before fill and immediately before submit**. Upload only approved `requiredUploads`; no public post/video/work-sample automation.
+- [ ] **Step 5: Verify** — `npx playwright install chromium` then package browser tests; commit `feat(execution): add guarded ATS browser executor`.
+
+### Task 8: Freelancer official bid executor
+
+**Files:** Keep `connectors/freelancer/freelancer_mcp_server.py` unchanged; create `connectors/freelancer/freelancer_pursuit_server.py` and `connectors/freelancer/tests/test_freelancer_pursuit_server.py`; update README.
+
+**Interfaces:** MCP tools `inspect_freelancer_bid(project_id)`, `submit_freelancer_bid(authorized_payload)`, `verify_freelancer_bid(bid_id, project_id)`.
+
+The official Freelancer SDK documents authenticated bid creation and maps it to `POST /projects/0.1/bids`; use the existing OAuth bearer token and API base rather than private endpoints.
+
+- [ ] **Step 1: Write mocked failing tests** for missing token, mismatched bidder/project, successful `POST /projects/0.1/bids`, 401/403, and durable bid-ID verification.
+- [ ] **Step 2: Implement inspect** using official current-user/project endpoints; return account/project identity and bid requirements, never a write.
+- [ ] **Step 3: Implement submit** with exact approved fields only: `project_id`, verified `bidder_id`, integer/decimal API amount derived from approved minor units, `period`, `milestone_percentage`, `description`; reject extra financial/account actions.
+- [ ] **Step 4: Implement independent verify path** using `GET /projects/0.1/bids/{bid_id}` or project-bid retrieval and require matching bid/project/bidder identity.
+- [ ] **Step 5: Verify** — `python -m unittest discover connectors/freelancer/tests`; confirm original read-only connector tests still pass; commit `feat(freelancer): add scoped official bid executor`.
+
+### Task 9: Runtime integration, canary harness, environment, and CI
+
+**Files:** Modify `apps/worker/src/main.ts`, `.env.example`, root `package.json`; create `scripts/pursuit-canary.ts`, `apps/control-plane/app/api/pursuits/inspect/route.ts`, `apps/control-plane/app/api/pursuits/status/route.ts`.
+
+**Interfaces:** Worker accepts pursuit jobs only through gateway; control plane exposes inspect/status, not secrets; canary supports `--mode live-inspect|live-authorized`.
+
+- [ ] **Step 1: Add environment contract**
+```env
+OPPORTUNITYOS_EXECUTION_MODE=simulation
+PURSUIT_SECRET_KEY_BASE64=
+PURSUIT_SESSION_STORE_PATH=.local/pursuit-sessions.enc
+FREELANCER_ACCESS_TOKEN=
+```
+Add `.local/` to `.gitignore`; never commit generated encrypted blobs.
+- [ ] **Step 2: Wire worker dispatch** so `simulation` continues current `runSimulationWorkOrder`; pursuit jobs require explicit mode, prepared payload, route, and approval.
+- [ ] **Step 3: Add inspect/status API routes** returning canonical form/session health/result state with secret fields removed.
+- [ ] **Step 4: Add canary harness**: Gate A runs auth/session identity + inspect only; Gate B compiles/diffs real forms; Gate C refuses `live-authorized` without an exact approval file/hash and prints the idempotency key before execution.
+- [ ] **Step 5: Update root scripts** to build/typecheck/test `@opportunityos/pursuit-execution` and run Freelancer Python tests separately. Run `npm test && npm run typecheck && npm run build && npm run smoke`; expect all existing simulation checks to pass.
+- [ ] **Step 6: Commit** — `feat: wire authenticated pursuit execution runtime`.
+
+### Task 10: Gate A/B/C verification and production enablement
+
+**Files:** Create `docs/
