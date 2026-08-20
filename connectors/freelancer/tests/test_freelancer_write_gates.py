@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-import freelancer_mcp_server as server
+import freelancer_governed_mcp_server as server
 
 
 def _response(status_code=200, payload=None):
