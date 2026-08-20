@@ -38,7 +38,7 @@ The current release explicitly treats live external actions as disabled. Adding 
 
 Use a hybrid API + browser architecture behind a common Action Gateway:
 
-`Opportunity -> Qualified Pursuit -> PreparedApplication -> PolicyCheck -> AuthorizedAction -> PursuitExecutor -> IndependentVerification -> SubmissionReceipt`
+`Opportunity -> Qualified Pursuit -> PreparedApplication -> PolicyCheck -> AuthorizedAction -> PursuitExecutor -> IndependentVerifier -> SubmissionReceipt`
 
 Official authenticated APIs are preferred. Browser-assisted execution is a controlled fallback.
 
@@ -95,7 +95,7 @@ export interface PreparedApplication {
 
   expectedCost: {
     currency?: string;
-    amount?: number;
+    amountMinor?: number;
     credits?: number;
     requiresPurchase: boolean;
   };
@@ -131,6 +131,8 @@ export interface PreparedAnswer {
 }
 ```
 
+`amountMinor` is an integer in the currency's minor unit. Floating-point money is not permitted.
+
 ### Evidence rules
 
 - Verified portfolio links, project facts, current enrollment, and known contact data may be `VERIFIED_FACT`.
@@ -138,6 +140,7 @@ export interface PreparedAnswer {
 - Proposed implementation approaches must be marked `PROPOSED_WORK`, not represented as prior experience.
 - Unsupported professional years, framework depth, customer results, deployment status, or degree claims are rejected.
 - `UNRESOLVED` and `PROHIBITED_TO_INFER` fields block submission when the live form requires them.
+- Top-level convenience fields such as availability or work authorization may only be populated from corresponding `VERIFIED_FACT` or `USER_ATTESTED_FACT` answers. They are not independent truth sources.
 
 ## 6. Live form inspection and requirement diffing
 
@@ -153,15 +156,21 @@ export interface PursuitExecutor {
   execute(
     action: AuthorizedPursuitAction,
   ): Promise<ExecutionResult>;
+}
+
+export interface PursuitVerifier {
   verify(
+    application: PreparedApplication,
     execution: ExecutionResult,
   ): Promise<VerificationResult>;
 }
 ```
 
+The executor and verifier are separate responsibilities. An executor must not produce its own verified-success state.
+
 The required sequence is:
 
-`prepare -> inspect live form -> diff requirements -> revalidate payload -> authorize -> execute -> verify`
+`prepare -> inspect live form -> diff requirements -> revalidate payload -> authorize -> execute -> independently verify`
 
 If a form changes after preparation, the executor must not improvise. It returns `PAYLOAD_CHANGED`, `NEEDS_INPUT`, or another explicit fail-closed state.
 
@@ -360,6 +369,7 @@ export type PursuitExecutionStatus =
   | 'EXECUTED_UNVERIFIED'
   | 'ALREADY_SUBMITTED'
   | 'REJECTED_BY_PLATFORM'
+  | 'NEEDS_INPUT'
   | 'NEEDS_HUMAN_AUTH'
   | 'AUTH_REQUIRED'
   | 'MFA_REQUIRED'
@@ -377,7 +387,7 @@ export type PursuitExecutionStatus =
 
 ## 17. Independent verification
 
-The executor may report what it attempted, but it cannot declare its own success.
+The executor may report what it attempted, but it cannot declare its own action verified.
 
 A separate verifier establishes durable external evidence using one or more of:
 
@@ -390,6 +400,8 @@ A separate verifier establishes durable external evidence using one or more of:
 - email provider `SENT` message ID from the required sender identity.
 
 A browser screenshot may be retained as supporting evidence but is insufficient by itself when a stronger durable record is available.
+
+The verifier may use the same platform account where unavoidable, but it must be a separate code path or service contract and must not trust an executor-supplied `success=true` assertion as evidence.
 
 ## 18. Receipts
 
@@ -416,7 +428,7 @@ Receipts must never contain raw credentials, cookies, passwords, tokens, MFA mat
 
 ## 19. Human Authority boundaries
 
-The existing auto-apply policy may authorize ordinary application submissions only when all required material facts are already verified and no new consequential commitment is introduced.
+The existing auto-apply policy may authorize ordinary application submissions after the rollout reaches Gate D, but only when all required material facts are already verified and no new consequential commitment is introduced.
 
 The system must stop for Human Authority when an application requires any unresolved or newly consequential action, including:
 
@@ -438,7 +450,7 @@ Human approval binds only the exact action and payload and cannot be broadened b
 - No secrets in Git.
 - No raw credentials in canonical application objects.
 - No raw credentials in receipts.
-- Encrypted token and session storage.
+- Tokens and browser session material encrypted at rest.
 - Per-platform and per-account action scopes.
 - Least-privilege OAuth scopes where available.
 - Account identity verification before every write.
@@ -457,6 +469,7 @@ Human approval binds only the exact action and payload and cannot be broadened b
 - payload hashing and mutation invalidation,
 - action-scope denial,
 - cost-change invalidation,
+- integer-minor-unit cost handling,
 - idempotency-key stability,
 - result-state transitions,
 - receipt redaction.
@@ -472,6 +485,8 @@ Each executor must pass a shared suite covering:
 - challenge detection,
 - duplicate prevention,
 - verifier independence.
+
+Each verifier must pass a shared suite proving that executor assertions alone are insufficient for verified success.
 
 ### Browser tests
 
