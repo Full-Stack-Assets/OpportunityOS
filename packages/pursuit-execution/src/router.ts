@@ -1,0 +1,5 @@
+export type ExecutionMode='SIMULATION'|'LIVE_INSPECT'|'LIVE_AUTHORIZED';
+export interface PursuitExecutor { kind:'official_api'|'browser'; inspect(target:unknown):Promise<unknown>; validate(application:unknown,form:unknown):Promise<unknown>; execute(action:unknown):Promise<unknown> }
+export interface RouteCapabilities { officialApi?:PursuitExecutor; browser?:PursuitExecutor }
+export function routeExecutor(mode:ExecutionMode,cap:RouteCapabilities):PursuitExecutor|{status:'UNAVAILABLE'|'INSPECT_ONLY'} { if(mode==='SIMULATION') return {status:'UNAVAILABLE'}; if(mode==='LIVE_INSPECT') return cap.officialApi??cap.browser??{status:'UNAVAILABLE'}; return cap.officialApi??cap.browser??{status:'UNAVAILABLE'} }
+export async function executeGuarded(mode:ExecutionMode,executor:PursuitExecutor|{status:string},action:unknown){ if(mode!=='LIVE_AUTHORIZED') return {status:mode==='LIVE_INSPECT'?'INSPECT_ONLY':'UNAVAILABLE',externalSideEffects:0}; if(!('execute' in executor)) return {status:'UNAVAILABLE',externalSideEffects:0}; return {status:'EXECUTED_UNVERIFIED',result:await executor.execute(action),externalSideEffects:1}; }
