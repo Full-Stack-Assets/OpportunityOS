@@ -25,3 +25,4 @@ export * from './opportunity-revalidation.ts';
 export * from './critical-investigation.ts';
 export * from './pursuit.ts';
 export * from './pursuit-policy.ts';
+export * from './pursuit-gateway.ts';
