@@ -1,3 +1,5 @@
+import {hashCanonical} from './canonical.ts';
+import {createApplicationIdempotencyKey} from './connector-execution.ts';
 import type {
   AutoApplyPolicyEnvelope,
   InboundSearchAssessment,
@@ -30,6 +32,10 @@ function nonBlank(value: string, field: string): string {
 function uniqueNonBlank(values: string[], field: string): string[] {
   if (!Array.isArray(values)) throw new TypeError(`${field} must be an array`);
   return [...new Set(values.map((value) => nonBlank(value, field)))];
+}
+
+function sortedUniqueNonBlank(values: string[], field: string): string[] {
+  return uniqueNonBlank(values, field).sort();
 }
 
 /**
@@ -231,5 +237,119 @@ export function materializeAutoApplyPolicyEnvelope(
       dailySubmissionLimit,
       perPlatformDailyLimit,
     },
+  };
+}
+
+export interface MarketplaceApplicationPreparationInput {
+  provider: string;
+  opportunityId: string;
+  providerOpportunityId: string;
+  listingFingerprint: string;
+  proposalText: string;
+  attachmentHashes: string[];
+  requiredFieldAnswers: Record<string, string>;
+  actionIntentId: string;
+  evidenceRefs: string[];
+  unsupportedClaims: string[];
+  requiredClarifications: string[];
+}
+
+export interface PreparedMarketplaceApplicationPackage {
+  provider: string;
+  opportunityId: string;
+  providerOpportunityId: string;
+  listingFingerprint: string;
+  proposalText: string;
+  proposalTextHash: string;
+  attachmentHashes: string[];
+  requiredFieldAnswers: Record<string, string>;
+  actionIntentId: string;
+  evidenceRefs: string[];
+  packageHash: string;
+  idempotencyKey: string;
+}
+
+export type MarketplaceApplicationPreparationResult =
+  | {
+      state: 'PREPARED';
+      submissionAllowed: false;
+      reasons: [];
+      package: PreparedMarketplaceApplicationPackage;
+    }
+  | {
+      state: 'NEEDS_REVIEW';
+      submissionAllowed: false;
+      reasons: string[];
+      package: null;
+    };
+
+function normalizeRequiredFieldAnswers(value: Record<string, string>): Record<string, string> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('requiredFieldAnswers must be an object');
+  }
+  const normalized: Record<string, string> = {};
+  for (const [key, answer] of Object.entries(value).sort(([left], [right]) => left.localeCompare(right))) {
+    const normalizedKey = nonBlank(key, 'requiredFieldAnswers key');
+    normalized[normalizedKey] = nonBlank(answer, `requiredFieldAnswers.${normalizedKey}`);
+  }
+  return normalized;
+}
+
+/**
+ * Prepare a provider-neutral application package without granting submission authority.
+ * This is the safe path for providers whose final write route is unavailable, manual-only,
+ * confirmation-required, or awaiting provider permission. Unsupported claims and unresolved
+ * required facts fail closed into NEEDS_REVIEW rather than entering a provider payload.
+ */
+export function prepareMarketplaceApplicationPackage(
+  input: MarketplaceApplicationPreparationInput,
+): MarketplaceApplicationPreparationResult {
+  const provider = nonBlank(input.provider, 'provider');
+  const opportunityId = nonBlank(input.opportunityId, 'opportunityId');
+  const providerOpportunityId = nonBlank(input.providerOpportunityId, 'providerOpportunityId');
+  const listingFingerprint = nonBlank(input.listingFingerprint, 'listingFingerprint');
+  const proposalText = nonBlank(input.proposalText, 'proposalText');
+  const actionIntentId = nonBlank(input.actionIntentId, 'actionIntentId');
+  const attachmentHashes = sortedUniqueNonBlank(input.attachmentHashes, 'attachmentHashes');
+  const evidenceRefs = sortedUniqueNonBlank(input.evidenceRefs, 'evidenceRefs');
+  const unsupportedClaims = sortedUniqueNonBlank(input.unsupportedClaims, 'unsupportedClaims');
+  const requiredClarifications = sortedUniqueNonBlank(input.requiredClarifications, 'requiredClarifications');
+  const requiredFieldAnswers = normalizeRequiredFieldAnswers(input.requiredFieldAnswers);
+
+  const reasons: string[] = [];
+  if (unsupportedClaims.length > 0) reasons.push('UNSUPPORTED_CLAIM');
+  if (requiredClarifications.length > 0) reasons.push('REQUIRED_CLARIFICATION');
+  if (evidenceRefs.length === 0) reasons.push('EVIDENCE_REQUIRED');
+  if (reasons.length > 0) {
+    return {state: 'NEEDS_REVIEW', submissionAllowed: false, reasons, package: null};
+  }
+
+  const proposalTextHash = hashCanonical(proposalText);
+  const packageBody = {
+    provider,
+    opportunityId,
+    providerOpportunityId,
+    listingFingerprint,
+    proposalText,
+    proposalTextHash,
+    attachmentHashes,
+    requiredFieldAnswers,
+    actionIntentId,
+    evidenceRefs,
+  };
+  const packageHash = hashCanonical(packageBody);
+  const idempotencyKey = createApplicationIdempotencyKey({
+    provider,
+    providerOpportunityId,
+    listingFingerprint,
+    packageHash,
+    actionIntentId,
+  });
+
+  return {
+    state: 'PREPARED',
+    submissionAllowed: false,
+    reasons: [],
+    package: {...packageBody, packageHash, idempotencyKey},
   };
 }
