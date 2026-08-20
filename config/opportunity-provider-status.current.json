@@ -1,0 +1,72 @@
+{
+  "schema_version": "opportunity-provider-status/v1",
+  "observed_at": "2026-08-20T05:58:30Z",
+  "expires_at": "2026-08-21T05:58:30Z",
+  "providers": {
+    "gmail": {
+      "health": "UNVERIFIED",
+      "inbound_search": "UNVERIFIED",
+      "blocker": "FAILED_PRECONDITION",
+      "evidence_refs": [
+        "live:gmail:search_email_ids:failedPrecondition:2026-08-20",
+        "live:gmail:list_labels:failedPrecondition:2026-08-20"
+      ],
+      "next_human_action": "Verify that the connected Google identity has an active Gmail mailbox/service entitlement, then reconnect and rerun controlled search probes."
+    },
+    "outlook": {
+      "health": "HEALTHY",
+      "inbound_search": "SUPPORTED",
+      "evidence_refs": [
+        "live:outlook:search_messages:success:2026-08-20"
+      ]
+    },
+    "contra": {
+      "health": "DEGRADED",
+      "discovery": "SUPPORTED",
+      "inbound_messages": "SUPPORTED",
+      "prepare_application": "SUPPORTED",
+      "submit_application": "CONFIRMATION_REQUIRED",
+      "respond_message": "CONFIRMATION_REQUIRED",
+      "runtime_namespace_exposed": false,
+      "evidence_refs": [
+        "plugin:Contra_:installed:2026-08-20",
+        "plugin:Contra_:permission:full_access:2026-08-20"
+      ]
+    },
+    "freelancer": {
+      "health": "PERMISSION_REQUIRED",
+      "discovery": "SUPPORTED",
+      "prepare_application": "SUPPORTED",
+      "submit_application": "PERMISSION_REQUIRED",
+      "read_inbox": "PERMISSION_REQUIRED",
+      "respond_message": "PERMISSION_REQUIRED",
+      "browser_automation": "PROHIBITED_WITHOUT_WRITTEN_PERMISSION",
+      "evidence_refs": [
+        "repo:freelancer:connector:official-api",
+        "policy:freelancer:user-agreement:automated-access"
+      ]
+    },
+    "upwork": {
+      "health": "PERMISSION_REQUIRED",
+      "discovery": "PERMISSION_REQUIRED",
+      "prepare_application": "SUPPORTED",
+      "submit_application": "PERMISSION_REQUIRED",
+      "browser_automation": "PROHIBITED",
+      "evidence_refs": [
+        "policy:upwork:automation",
+        "policy:upwork:api-key"
+      ]
+    },
+    "fiverr": {
+      "health": "POLICY_PROHIBITED",
+      "discovery": "SUPPLY_INTELLIGENCE_ONLY",
+      "prepare_application": "SUPPORTED_FROM_USER_OR_APPROVED_SOURCE",
+      "submit_application": "MANUAL_ONLY",
+      "respond_message": "MANUAL_ONLY",
+      "browser_automation": "PROHIBITED",
+      "evidence_refs": [
+        "policy:fiverr:terms:unauthorized-automation"
+      ]
+    }
+  }
+}
