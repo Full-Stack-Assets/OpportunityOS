@@ -168,3 +168,83 @@ test('auto-apply only authorizes candidates completely inside a verified Human A
   assert.equal(core.evaluateAutoApply({...base, platformConfirmationRequired: true}, policy).decision, 'ESCALATE');
   assert.equal(core.evaluateAutoApply(base, {...policy, authorityVerified: false}).decision, 'PREPARE_ONLY');
 });
+
+test('connector capability manifest makes operation support explicit and versioned', () => {
+  assert.equal(typeof core.resolveConnectorOperationCapability, 'function');
+
+  const manifest = {
+    provider: 'upwork',
+    adapterVersion: '1.0.0',
+    authenticationMode: 'OAUTH2',
+    browserAutomationPermitted: false,
+    lastVerifiedAt: '2026-08-20T05:30:00Z',
+    policyEvidenceRefs: ['policy:upwork:automation:2026-08-20'],
+    operations: {
+      DISCOVER: 'SUPPORTED',
+      READ_INBOX: 'SUPPORTED',
+      PREPARE_APPLICATION: 'SUPPORTED',
+      UPLOAD_ATTACHMENT: 'UNAVAILABLE',
+      SUBMIT_APPLICATION: 'UNAVAILABLE',
+      RESPOND_MESSAGE: 'UNAVAILABLE',
+    },
+  };
+
+  const read = core.resolveConnectorOperationCapability(manifest, 'DISCOVER');
+  assert.equal(read.mode, 'SUPPORTED');
+  assert.equal(read.machineExecutable, true);
+
+  const submit = core.resolveConnectorOperationCapability(manifest, 'SUBMIT_APPLICATION');
+  assert.equal(submit.mode, 'UNAVAILABLE');
+  assert.equal(submit.machineExecutable, false);
+  assert.equal(submit.requiresEscalation, true);
+});
+
+test('application execution idempotency key is stable and material-package-sensitive', () => {
+  assert.equal(typeof core.createApplicationIdempotencyKey, 'function');
+  const input = {
+    provider: 'freelancer',
+    providerOpportunityId: 'project-42',
+    listingFingerprint: 'listing-sha',
+    packageHash: 'package-sha',
+    actionIntentId: 'action-42',
+  };
+  const first = core.createApplicationIdempotencyKey(input);
+  const second = core.createApplicationIdempotencyKey({...input});
+  const changed = core.createApplicationIdempotencyKey({...input, packageHash: 'changed-package'});
+  assert.equal(first, second);
+  assert.notEqual(first, changed);
+  assert.match(first, /^application:/);
+});
+
+test('connector failure classifier bounds retries and never blindly retries unknown submissions', () => {
+  assert.equal(typeof core.classifyConnectorFailure, 'function');
+
+  const rate = core.classifyConnectorFailure({
+    operation: 'DISCOVER',
+    statusCode: 429,
+    code: 'RATE_LIMITED',
+    detail: 'too many requests',
+    outcomeKnown: true,
+  });
+  assert.equal(rate.failureClass, 'RATE_LIMITED');
+  assert.equal(rate.retryDisposition, 'BOUNDED_RETRY');
+
+  const policy = core.classifyConnectorFailure({
+    operation: 'SUBMIT_APPLICATION',
+    code: 'POLICY_PROHIBITED',
+    detail: 'browser automation not permitted',
+    outcomeKnown: true,
+  });
+  assert.equal(policy.failureClass, 'POLICY_PROHIBITED');
+  assert.equal(policy.retryDisposition, 'DO_NOT_RETRY');
+
+  const unknownSubmit = core.classifyConnectorFailure({
+    operation: 'SUBMIT_APPLICATION',
+    code: 'NETWORK_TIMEOUT',
+    detail: 'connection closed after submit request',
+    outcomeKnown: false,
+  });
+  assert.equal(unknownSubmit.failureClass, 'UNKNOWN_WRITE_OUTCOME');
+  assert.equal(unknownSubmit.retryDisposition, 'RECONCILE_BEFORE_RETRY');
+  assert.equal(unknownSubmit.requiresEscalation, true);
+});
