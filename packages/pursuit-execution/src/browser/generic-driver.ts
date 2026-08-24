@@ -43,7 +43,11 @@ function normalizeField(field: ExtractedField, index: number): FormField {
 }
 
 export class GenericAtsPlaywrightDriver implements BrowserPursuitDriver {
-  constructor(private readonly sessions: AtsSessionFactory) {}
+  private readonly sessions: AtsSessionFactory;
+
+  constructor(sessions: AtsSessionFactory) {
+    this.sessions = sessions;
+  }
 
   async inspectForm(target: PursuitTarget): Promise<BrowserFormSnapshot> {
     const page = await this.sessions.open(target.url);
