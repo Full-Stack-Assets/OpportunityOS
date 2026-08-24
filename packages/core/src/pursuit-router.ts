@@ -5,7 +5,7 @@ import type {
   PursuitExecutor,
   PursuitRoute,
   PursuitVerifier,
-  VerificationResult,
+  PursuitVerificationResult,
 } from './pursuit.ts';
 import type { CredentialBroker, SessionBroker } from './pursuit-brokers.ts';
 
@@ -51,20 +51,24 @@ export class ExecutorRouter {
 
     if (action.route.executorType === 'official_api') {
       const result = await credentialBroker.resolve({
-        credentialRef: action.route.credentialRef,
+        ...(action.route.credentialRef ? { credentialRef: action.route.credentialRef } : {}),
         platform: action.route.platform,
         accountRef: action.route.accountRef,
       });
-      return result.ok ? { ok: true, status: 'EXECUTED_UNVERIFIED' } : { ok: false, status: result.status, reason: result.reason };
+      return result.ok
+        ? { ok: true, status: 'EXECUTED_UNVERIFIED' }
+        : { ok: false, status: result.status, ...(result.reason ? { reason: result.reason } : {}) };
     }
 
     if (action.route.executorType === 'browser') {
       const result = await sessionBroker.inspect({
-        sessionRef: action.route.sessionRef,
+        ...(action.route.sessionRef ? { sessionRef: action.route.sessionRef } : {}),
         platform: action.route.platform,
         accountRef: action.route.accountRef,
       });
-      return result.ok ? { ok: true, status: 'EXECUTED_UNVERIFIED' } : { ok: false, status: result.status, reason: result.reason };
+      return result.ok
+        ? { ok: true, status: 'EXECUTED_UNVERIFIED' }
+        : { ok: false, status: result.status, ...(result.reason ? { reason: result.reason } : {}) };
     }
 
     return { ok: true, status: 'EXECUTED_UNVERIFIED' };
@@ -90,7 +94,7 @@ export class EvidenceBackedPursuitVerifier implements PursuitVerifier {
     this.probe = probe;
   }
 
-  async verify(application: PreparedApplication, execution: ExecutionResult): Promise<VerificationResult> {
+  async verify(application: PreparedApplication, execution: ExecutionResult): Promise<PursuitVerificationResult> {
     const verifiedAt = new Date().toISOString();
 
     if (execution.status === 'SUBMITTED_VERIFIED' || execution.status === 'ALREADY_SUBMITTED') {
