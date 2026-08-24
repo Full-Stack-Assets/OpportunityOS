@@ -42,10 +42,13 @@ function challengeOutcome(status: PursuitExecutionStatus): BrowserSubmissionResu
 }
 
 export class ProviderAtsPlaywrightDriver<Page = unknown> implements BrowserPursuitDriver {
-  constructor(
-    private readonly sessions: ProviderAtsSessionFactory<Page>,
-    private readonly providers: AtsProviderAdapter<Page>[],
-  ) {}
+  private readonly sessions: ProviderAtsSessionFactory<Page>;
+  private readonly providers: AtsProviderAdapter<Page>[];
+
+  constructor(sessions: ProviderAtsSessionFactory<Page>, providers: AtsProviderAdapter<Page>[]) {
+    this.sessions = sessions;
+    this.providers = providers;
+  }
 
   private provider(url: string): AtsProviderAdapter<Page> | undefined {
     return this.providers.find((candidate) => candidate.matches(url));
