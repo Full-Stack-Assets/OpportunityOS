@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { PostgresKnowledgeStore } from '../src/knowledge-store.ts';
+import { PostgresPortfolioPreflightStore } from '../src/portfolio-preflight-store.ts';
 
 function recordingDb(rows = []) {
   const calls = [];
@@ -76,7 +77,7 @@ test('knowledge entity upsert uses parameterized SQL and persists aliases idempo
 
 test('project policy persistence is parameterized and idempotent', async () => {
   const { db, calls } = recordingDb();
-  const store = new PostgresKnowledgeStore(db);
+  const store = new PostgresPortfolioPreflightStore(db);
   await store.putProjectPolicy({
     projectId: entity.id,
     preflightRequired: true,
@@ -90,7 +91,7 @@ test('project policy persistence is parameterized and idempotent', async () => {
 
 test('project policy lookup returns undefined rather than inventing a missing policy', async () => {
   const { db } = recordingDb([]);
-  const store = new PostgresKnowledgeStore(db);
+  const store = new PostgresPortfolioPreflightStore(db);
   assert.equal(await store.getProjectPolicy(entity.id), undefined);
 });
 
@@ -109,7 +110,7 @@ test('preflight receipt persistence is parameterized and queryable', async () =>
     receiptHash: 'receipt-hash',
   };
   const { db, calls } = recordingDb();
-  const store = new PostgresKnowledgeStore(db);
+  const store = new PostgresPortfolioPreflightStore(db);
   await store.recordPreflightReceipt(receipt);
   assert.match(calls[0].text, /insert into knowledge_preflight_receipts/i);
   assert.match(calls[0].text, /on conflict \(id\) do update/i);
@@ -132,7 +133,7 @@ test('preflight receipt lookup maps persisted evidence without fabrication', asy
     generated_at: entity.updatedAt,
     receipt_hash: 'receipt-hash',
   }]);
-  const store = new PostgresKnowledgeStore(db);
+  const store = new PostgresPortfolioPreflightStore(db);
   const result = await store.getPreflightReceipt('knowledge-preflight:abc');
   assert.equal(result.id, 'knowledge-preflight:abc');
   assert.equal(result.scope, 'SUBSTANTIAL');
