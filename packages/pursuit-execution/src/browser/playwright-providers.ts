@@ -92,10 +92,21 @@ async function fillAnswer(page: AtsWritablePage, answer: PreparedAnswer): Promis
   await target.fill(String(answer.answer ?? ''));
 }
 
+function evidenceRefs(providerId: string, externalId: string, url: string): string[] {
+  const refs = [`${providerId}://application/${externalId}`];
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') refs.push(parsed.toString());
+  } catch {
+    // Provider identity receipt remains available even when URL parsing fails.
+  }
+  return refs;
+}
+
 async function durableConfirmation(page: AtsWritablePage, providerId: string): Promise<AtsProviderConfirmation | undefined> {
   const url = page.url();
   const urlMatch = url.match(/\/applications?\/([A-Za-z0-9_-]{4,})/i);
-  if (urlMatch?.[1]) return { externalId: urlMatch[1], evidenceRefs: [`${providerId}://application/${urlMatch[1]}`] };
+  if (urlMatch?.[1]) return { externalId: urlMatch[1], evidenceRefs: evidenceRefs(providerId, urlMatch[1], url) };
 
   for (const selector of ['[data-application-id]', '[data-testid="application-id"]', '[id*="application-id"]']) {
     const locator = page.locator(selector);
@@ -104,7 +115,7 @@ async function durableConfirmation(page: AtsWritablePage, providerId: string): P
     const candidate = (await first.getAttribute('data-application-id')) ?? (await first.textContent());
     const normalized = candidate?.trim();
     if (normalized && /^[A-Za-z0-9_-]{4,}$/.test(normalized)) {
-      return { externalId: normalized, evidenceRefs: [`${providerId}://application/${normalized}`] };
+      return { externalId: normalized, evidenceRefs: evidenceRefs(providerId, normalized, url) };
     }
   }
   return undefined;
