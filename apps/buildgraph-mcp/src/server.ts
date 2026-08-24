@@ -6,6 +6,7 @@ import {
   compileKnowledgePreflight,
   createCanonicalEntity,
   createSourceRecord,
+  evaluatePortfolioPreflight,
   ingestGitHubRepository,
   resolveCapabilityGraph,
   resolveKnowledgeItem,
@@ -14,7 +15,7 @@ import cors from 'cors';
 import express from 'express';
 import { z } from 'zod';
 
-const SERVER_VERSION = '0.3.0-simulation';
+const SERVER_VERSION = '0.4.0-simulation';
 
 const sourceSystemSchema = z.enum([
   'github',
@@ -87,6 +88,54 @@ const preflightCandidateSchema = z.object({
   sourceIdentityScore: z.number().nonnegative(),
   reasons: z.array(z.string()),
   sourceRefs: z.array(sourceRefSchema),
+});
+
+const workKindSchema = z.enum([
+  'NEW_PROJECT',
+  'NEW_PRODUCT',
+  'FEATURE',
+  'ARCHITECTURE',
+  'INTEGRATION',
+  'AGENT',
+  'SKILL',
+  'RESEARCH_PROGRAM',
+  'REFACTOR',
+  'BUG_FIX',
+  'TEST',
+  'DOCS',
+  'DEPENDENCY',
+  'MAINTENANCE',
+]);
+
+const buildGraphDecisionSchema = z.enum([
+  'REUSE_EXISTING',
+  'EXTEND_EXISTING',
+  'MERGE_WITH_EXISTING',
+  'FORK_EXISTING',
+  'REFACTOR_EXISTING',
+  'ARCHIVE_DUPLICATE',
+  'CREATE_NEW',
+]);
+
+const portfolioKnowledgeSchema = z.object({
+  status: z.enum([
+    'REUSE_EVIDENCE_FOUND',
+    'NO_REUSE_EVIDENCE',
+    'REVIEW',
+    'BUILDGRAPH_KNOWLEDGE_UNAVAILABLE',
+  ]),
+  allowCreateNew: z.boolean(),
+});
+
+const portfolioPreflightSchema = z.object({
+  decision: buildGraphDecisionSchema,
+  primaryProjectId: z.string().min(1).optional(),
+  justification: z.string(),
+  evidence: z.object({
+    projectIds: z.array(z.string()),
+    constraintIds: z.array(z.string()),
+    decisionIds: z.array(z.string()),
+  }),
 });
 
 function hydrateKnowledgeInputs(
@@ -398,6 +447,44 @@ function createServer(): McpServer {
     async ({ request, registry }) => {
       try {
         return toolResult({ preflight: compileKnowledgePreflight(request, registry) });
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'buildgraph_evaluate_portfolio_preflight',
+    {
+      title: 'Evaluate portfolio-wide BuildGraph preflight policy',
+      description: 'Use this before substantial project or feature work to apply the inherited portfolio gate to already-compiled knowledge and preflight evidence. This is a deterministic read-only evaluation and performs no database or connector write.',
+      inputSchema: {
+        work: z.object({
+          id: z.string().min(1),
+          kind: workKindSchema,
+          summary: z.string().min(1),
+          createsReusableCapability: z.boolean(),
+          changesArchitecture: z.boolean(),
+        }),
+        policy: z.object({
+          preflightRequired: z.boolean(),
+          routineBypassAllowed: z.boolean(),
+          exemptionDecisionId: z.string().min(1).optional(),
+        }),
+        knowledge: portfolioKnowledgeSchema.optional(),
+        preflight: portfolioPreflightSchema.optional(),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ work, policy, knowledge, preflight }) => {
+      try {
+        return toolResult({
+          decision: evaluatePortfolioPreflight(work, policy, knowledge, preflight),
+        });
       } catch (error) {
         return toolError(error);
       }
