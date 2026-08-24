@@ -11,6 +11,7 @@ import type {
 } from '@opportunityos/core';
 
 export type FreelancerGatewayInput =
+  | { operation: 'inspect_bid'; project_id: number }
   | {
       operation: 'submit_bid';
       approval_ref: string;
@@ -25,6 +26,8 @@ export type FreelancerGatewayInput =
   | {
       operation: 'verify_bid';
       bid_id: number;
+      project_id?: number;
+      bidder_id?: number;
     };
 
 export interface FreelancerGatewayOutput {
@@ -33,6 +36,11 @@ export interface FreelancerGatewayOutput {
   external_id?: string;
   evidence_refs?: string[];
   message?: string;
+  account_id?: string;
+  project_id?: string;
+  title?: string;
+  bid_count?: number;
+  external_side_effects?: number;
 }
 
 export type FreelancerGatewayTransport = (input: FreelancerGatewayInput) => Promise<FreelancerGatewayOutput>;
@@ -109,6 +117,11 @@ function mapGatewayStatus(status: string): ExecutionResult['status'] {
   }
 }
 
+export async function inspectFreelancerGateway(transport: FreelancerGatewayTransport, projectIdValue: number): Promise<FreelancerGatewayOutput> {
+  if (!Number.isSafeInteger(projectIdValue) || projectIdValue <= 0) return { status: 'failed', verified: false, message: 'Valid Freelancer project ID required.' };
+  return transport({ operation: 'inspect_bid', project_id: projectIdValue });
+}
+
 export class FreelancerTrustedGatewayExecutor implements PursuitExecutor {
   private readonly transport: FreelancerGatewayTransport;
   private readonly now: () => string;
@@ -164,7 +177,7 @@ export class FreelancerTrustedGatewayExecutor implements PursuitExecutor {
     }
 
     const envelope = compileBidEnvelope(action);
-    if (!envelope) {
+    if (!envelope || envelope.operation !== 'submit_bid') {
       return { actionId: action.actionId, status: 'NEEDS_INPUT', executorType: 'official_api', platform: 'freelancer', attemptedAt, reason: 'GROUNDED_FREELANCER_BID_FACTS_REQUIRED' };
     }
 
@@ -188,10 +201,12 @@ export class FreelancerTrustedGatewayExecutor implements PursuitExecutor {
       return { actionId: execution.actionId, verified: false, status: execution.status, verifiedAt, evidenceRefs: execution.evidenceRefs ?? [], reason: 'FREELANCER_EXTERNAL_ID_REQUIRED' };
     }
     const bidId = Number(execution.externalId);
-    if (!Number.isSafeInteger(bidId) || bidId <= 0) {
-      return { actionId: execution.actionId, verified: false, status: 'EXECUTED_UNVERIFIED', verifiedAt, externalId: execution.externalId, evidenceRefs: [], reason: 'INVALID_FREELANCER_BID_ID' };
+    const authorizedProjectId = projectId(application);
+    const authorizedBidderId = integerAnswer(application, 'freelancer_bidder_id', 1);
+    if (!Number.isSafeInteger(bidId) || bidId <= 0 || !authorizedProjectId || !authorizedBidderId) {
+      return { actionId: execution.actionId, verified: false, status: 'EXECUTED_UNVERIFIED', verifiedAt, externalId: execution.externalId, evidenceRefs: [], reason: 'BOUND_FREELANCER_IDENTITIES_REQUIRED' };
     }
-    const output = await this.transport({ operation: 'verify_bid', bid_id: bidId });
+    const output = await this.transport({ operation: 'verify_bid', bid_id: bidId, project_id: authorizedProjectId, bidder_id: authorizedBidderId });
     if (output.status !== 'submitted_verified' || output.verified !== true || !output.evidence_refs?.length || output.external_id !== execution.externalId) {
       return { actionId: execution.actionId, verified: false, status: 'EXECUTED_UNVERIFIED', verifiedAt, externalId: execution.externalId, evidenceRefs: output.evidence_refs ?? [], reason: output.message ?? 'FREELANCER_BID_NOT_INDEPENDENTLY_VERIFIED' };
     }
