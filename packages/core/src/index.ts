@@ -28,3 +28,4 @@ export * from './pursuit-policy.ts';
 export * from './pursuit-gateway.ts';
 export * from './pursuit-brokers.ts';
 export * from './pursuit-router.ts';
+export * from './pursuit-browser-executor.ts';
