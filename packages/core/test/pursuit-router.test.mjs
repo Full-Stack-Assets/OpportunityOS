@@ -32,16 +32,27 @@ function action(route) {
   };
 }
 
+function executor(executorType) {
+  return {
+    inspect: async () => ({ targetPlatform: 'freelancer', targetUrl: 'x', fields: [], inspectedAt: 'x' }),
+    validate: async () => ({ allowed: true, canExecuteWrite: true, status: 'EXECUTED_UNVERIFIED' }),
+    execute: async () => ({ actionId: 'a', status: 'EXECUTED_UNVERIFIED', executorType, platform: 'freelancer', attemptedAt: 'x' }),
+  };
+}
+
 test('executor router prefers official API when both API and browser executors exist', () => {
-  const api = { inspect: async () => ({ targetPlatform: 'freelancer', targetUrl: 'x', fields: [], inspectedAt: 'x' }), validate: async () => ({ allowed: true, canExecuteWrite: true, status: 'EXECUTED_UNVERIFIED' }), execute: async () => ({ actionId: 'a', status: 'EXECUTED_UNVERIFIED', executorType: 'official_api', platform: 'freelancer', attemptedAt: 'x' }) };
-  const browser = { ...api, execute: async () => ({ actionId: 'a', status: 'EXECUTED_UNVERIFIED', executorType: 'browser', platform: 'freelancer', attemptedAt: 'x' }) };
-  const router = new ExecutorRouter([{ platform: 'freelancer', executorType: 'browser', executor: browser }, { platform: 'freelancer', executorType: 'official_api', executor: api }]);
+  const router = new ExecutorRouter([
+    { platform: 'freelancer', executorType: 'browser', executor: executor('browser') },
+    { platform: 'freelancer', executorType: 'official_api', executor: executor('official_api') },
+  ]);
   assert.equal(router.resolve('freelancer')?.executorType, 'official_api');
 });
 
 test('router preflight fails closed when API credential or browser session is unavailable', async () => {
-  const executor = { inspect: async () => ({ targetPlatform: 'freelancer', targetUrl: 'x', fields: [], inspectedAt: 'x' }), validate: async () => ({ allowed: true, canExecuteWrite: true, status: 'EXECUTED_UNVERIFIED' }), execute: async () => ({ actionId: 'a', status: 'EXECUTED_UNVERIFIED', executorType: 'official_api', platform: 'freelancer', attemptedAt: 'x' }) };
-  const router = new ExecutorRouter([{ platform: 'freelancer', executorType: 'official_api', executor }]);
+  const router = new ExecutorRouter([
+    { platform: 'freelancer', executorType: 'official_api', executor: executor('official_api') },
+    { platform: 'freelancer', executorType: 'browser', executor: executor('browser') },
+  ]);
   const credentialBroker = new InMemoryCredentialBroker();
   const sessionBroker = new InMemorySessionBroker();
 
