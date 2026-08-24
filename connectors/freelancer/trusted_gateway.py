@@ -2,7 +2,7 @@ import json
 import sys
 from typing import Any
 
-import freelancer_mcp_server as server
+import freelancer_pursuit_adapter as server
 
 
 def dispatch(payload: dict[str, Any]) -> dict[str, Any]:
