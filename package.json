@@ -21,6 +21,7 @@
     "demo": "node --experimental-strip-types scripts/buyer-demo.ts",
     "pursuit:canary": "npm run build:core && npm run build:execution && node --experimental-strip-types scripts/pursuit-canary.ts",
     "pursuit:seal-session": "node --experimental-strip-types scripts/pursuit-seal-session.ts",
+    "pursuit:sign-approval": "npm run build:core && node --experimental-strip-types scripts/pursuit-sign-approval.ts",
     "typecheck:local": "tsc -p packages/core/tsconfig.json --noEmit && tsc -p packages/postgres/tsconfig.json --noEmit && npm run typecheck --workspace @opportunityos/pursuit-execution",
     "build:execution": "npm run build --workspace @opportunityos/pursuit-execution"
   },
