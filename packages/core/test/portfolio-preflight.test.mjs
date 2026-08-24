@@ -72,11 +72,10 @@ test('scope escalation reclassifies routine work as substantial', () => {
 
 test('substantial work fails closed without knowledge evidence', () => {
   const request = work({ kind: 'NEW_PROJECT', createsReusableCapability: true, changesArchitecture: true });
-  assert.deepEqual(evaluatePortfolioPreflight(request, policy, undefined, undefined), {
-    allowed: false,
-    scope: 'SUBSTANTIAL',
-    reason: 'BUILDGRAPH_PREFLIGHT_REQUIRED',
-  });
+  const result = evaluatePortfolioPreflight(request, policy, undefined, undefined);
+  assert.equal(result.allowed, false);
+  assert.equal(result.scope, 'SUBSTANTIAL');
+  assert.equal(result.reason, 'BUILDGRAPH_PREFLIGHT_REQUIRED');
 });
 
 test('unavailable knowledge blocks substantial work', () => {
@@ -144,4 +143,15 @@ test('receipt hash is deterministic for identical decisions', () => {
   assert.equal(a.workId, 'work-create');
   assert.equal(a.scope, 'SUBSTANTIAL');
   assert.equal(a.decision, 'CREATE_NEW');
+});
+
+test('blocked substantial decisions also produce durable receipts', () => {
+  const request = work({ id: 'work-blocked', kind: 'NEW_PROJECT', summary: 'Create overlapping engine', createsReusableCapability: true, changesArchitecture: true });
+  const decision = evaluatePortfolioPreflight(request, policy, undefined, undefined);
+  assert.equal(decision.allowed, false);
+  assert.equal(decision.workId, 'work-blocked');
+  const receipt = createPortfolioPreflightReceipt(decision, '2026-08-24T18:05:00.000Z');
+  assert.equal(receipt.workId, 'work-blocked');
+  assert.equal(receipt.outcome, 'BUILDGRAPH_PREFLIGHT_REQUIRED');
+  assert.equal(receipt.scope, 'SUBSTANTIAL');
 });
