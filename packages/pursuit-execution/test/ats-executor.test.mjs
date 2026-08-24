@@ -4,8 +4,8 @@ import test from 'node:test';
 import { classifyAtsField, detectAtsChallenge, GenericAtsPlaywrightDriver } from '../src/browser/index.ts';
 
 test('ATS field classifier separates legal and ordinary fields', () => {
-  assert.equal(classifyAtsField({ label: 'Will you now or in the future require sponsorship?', name: 'sponsorship', type: 'radio' }), 'LEGAL_WORK_AUTH');
-  assert.equal(classifyAtsField({ label: 'Email', name: 'email', type: 'email', autocomplete: 'email' }), 'CONTACT');
+  assert.equal(classifyAtsField({ label: 'Will you now or in the future require sponsorship?', name: 'sponsorship', type: 'radio' }), 'LEGAL');
+  assert.equal(classifyAtsField({ label: 'Email', name: 'email', type: 'email', autocomplete: 'email' }), 'ORDINARY');
   assert.equal(classifyAtsField({ label: 'Desired salary', name: 'salary', type: 'text' }), 'COMPENSATION');
 });
 
@@ -34,6 +34,6 @@ test('generic ATS driver inspects without filling or submitting', async () => {
   });
   const snapshot = await driver.inspectForm({ platform: 'ats', url: 'https://jobs.example/apply', opportunityId: 'opp-1', accountRef: 'acct://ats/nic' });
   assert.equal(snapshot.fields.length, 1);
-  assert.equal(snapshot.fields[0].classification, 'CONTACT');
+  assert.equal(snapshot.fields[0].attestationClass, 'ORDINARY');
   assert.deepEqual(calls, ['open', 'close']);
 });
