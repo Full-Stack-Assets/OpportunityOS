@@ -12,6 +12,7 @@ const registeredTools = new Set([
   'buildgraph_resolve_knowledge_item',
   'buildgraph_classify_knowledge_inbox',
   'buildgraph_compile_knowledge_preflight',
+  'buildgraph_evaluate_portfolio_preflight',
 ]);
 
 const pluginsRoot = new URL('../plugins/', import.meta.url);

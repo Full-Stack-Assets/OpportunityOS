@@ -11,6 +11,7 @@ export * from './knowledge-ingestion.ts';
 export * from './knowledge-adapters.ts';
 export * from './knowledge-retrieval.ts';
 export * from './knowledge-preflight.ts';
+export * from './portfolio-preflight.ts';
 export * from './factories.ts';
 export * from './verification.ts';
 export * from './economics.ts';

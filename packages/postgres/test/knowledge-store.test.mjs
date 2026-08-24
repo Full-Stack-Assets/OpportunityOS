@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { PostgresKnowledgeStore } from '../src/knowledge-store.ts';
+import { PostgresPortfolioPreflightStore } from '../src/portfolio-preflight-store.ts';
 
 function recordingDb(rows = []) {
   const calls = [];
@@ -54,6 +55,14 @@ test('knowledge migration defines persistent registry and isolated source conten
   assert.match(sql, /to_tsvector\s*\(\s*'simple'\s*,\s*content_text\s*\)/i);
 });
 
+test('portfolio preflight migration defines project policies and durable receipts', () => {
+  const sql = readFileSync(new URL('../../../database/migrations/003_buildgraph_portfolio_preflight.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create table if not exists knowledge_project_policies/i);
+  assert.match(sql, /create table if not exists knowledge_preflight_receipts/i);
+  assert.match(sql, /project_id text primary key references knowledge_entities\(id\)/i);
+  assert.match(sql, /receipt_hash text not null unique/i);
+});
+
 test('knowledge entity upsert uses parameterized SQL and persists aliases idempotently', async () => {
   const { db, calls } = recordingDb();
   const store = new PostgresKnowledgeStore(db);
@@ -64,6 +73,72 @@ test('knowledge entity upsert uses parameterized SQL and persists aliases idempo
   assert.equal(calls[0].values[2], entity.canonicalName);
   assert.ok(calls.some((call) => /knowledge_entity_aliases/i.test(call.text)));
   assert.equal(calls.some((call) => call.text.includes(entity.canonicalName)), false, 'source values must not be interpolated into SQL');
+});
+
+test('project policy persistence is parameterized and idempotent', async () => {
+  const { db, calls } = recordingDb();
+  const store = new PostgresPortfolioPreflightStore(db);
+  await store.putProjectPolicy({
+    projectId: entity.id,
+    preflightRequired: true,
+    routineBypassAllowed: true,
+    updatedAt: entity.updatedAt,
+  });
+  assert.match(calls[0].text, /insert into knowledge_project_policies/i);
+  assert.match(calls[0].text, /on conflict \(project_id\) do update/i);
+  assert.deepEqual(calls[0].values.slice(0, 3), [entity.id, true, true]);
+});
+
+test('project policy lookup returns undefined rather than inventing a missing policy', async () => {
+  const { db } = recordingDb([]);
+  const store = new PostgresPortfolioPreflightStore(db);
+  assert.equal(await store.getProjectPolicy(entity.id), undefined);
+});
+
+test('preflight receipt persistence is parameterized and queryable', async () => {
+  const receipt = {
+    id: 'knowledge-preflight:abc',
+    workId: 'work-1',
+    projectId: entity.id,
+    scope: 'SUBSTANTIAL',
+    outcome: 'BUILDGRAPH_CREATE_NEW_AUTHORIZED',
+    reason: 'BUILDGRAPH_CREATE_NEW_AUTHORIZED',
+    decision: 'CREATE_NEW',
+    justification: 'No reusable project satisfies the requirement',
+    evidence: { projectIds: [], constraintIds: ['policy:portfolio-preflight'], decisionIds: [] },
+    generatedAt: entity.updatedAt,
+    receiptHash: 'receipt-hash',
+  };
+  const { db, calls } = recordingDb();
+  const store = new PostgresPortfolioPreflightStore(db);
+  await store.recordPreflightReceipt(receipt);
+  assert.match(calls[0].text, /insert into knowledge_preflight_receipts/i);
+  assert.match(calls[0].text, /on conflict \(id\) do update/i);
+  assert.equal(calls[0].values[0], receipt.id);
+  assert.equal(calls[0].values[1], receipt.workId);
+  assert.equal(calls[0].text.includes(receipt.justification), false);
+});
+
+test('preflight receipt lookup maps persisted evidence without fabrication', async () => {
+  const { db } = recordingDb([{
+    id: 'knowledge-preflight:abc',
+    work_id: 'work-1',
+    project_id: entity.id,
+    scope: 'SUBSTANTIAL',
+    outcome: 'BUILDGRAPH_CREATE_NEW_AUTHORIZED',
+    reason: 'BUILDGRAPH_CREATE_NEW_AUTHORIZED',
+    decision: 'CREATE_NEW',
+    justification: 'No reusable project satisfies the requirement',
+    evidence: { projectIds: [], constraintIds: [], decisionIds: [] },
+    generated_at: entity.updatedAt,
+    receipt_hash: 'receipt-hash',
+  }]);
+  const store = new PostgresPortfolioPreflightStore(db);
+  const result = await store.getPreflightReceipt('knowledge-preflight:abc');
+  assert.equal(result.id, 'knowledge-preflight:abc');
+  assert.equal(result.scope, 'SUBSTANTIAL');
+  assert.equal(result.decision, 'CREATE_NEW');
+  assert.deepEqual(result.evidence, { projectIds: [], constraintIds: [], decisionIds: [] });
 });
 
 test('source upsert preserves source-native identity and last-seen semantics', async () => {
