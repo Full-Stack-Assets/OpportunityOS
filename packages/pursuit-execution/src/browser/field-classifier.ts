@@ -1,10 +1,10 @@
 import type { AttestationClass } from '@opportunityos/core';
 
 export interface AtsFieldDescriptor {
-  label?: string;
-  name?: string;
-  type?: string;
-  autocomplete?: string;
+  label?: string | undefined;
+  name?: string | undefined;
+  type?: string | undefined;
+  autocomplete?: string | undefined;
 }
 
 function haystack(field: AtsFieldDescriptor): string {
