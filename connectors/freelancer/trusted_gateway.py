@@ -10,7 +10,9 @@ def dispatch(payload: dict[str, Any]) -> dict[str, Any]:
         return {"status": "failed", "verified": False, "message": "Gateway payload must be an object."}
 
     operation = payload.get("operation")
-    if operation == "submit_bid":
+    if operation == "inspect_bid":
+        raw = server.inspect_freelancer_bid(payload.get("project_id"))
+    elif operation == "submit_bid":
         raw = server.submit_freelancer_bid(
             project_id=payload.get("project_id"),
             bidder_id=payload.get("bidder_id"),
@@ -22,7 +24,11 @@ def dispatch(payload: dict[str, Any]) -> dict[str, Any]:
             idempotency_key=payload.get("idempotency_key"),
         )
     elif operation == "verify_bid":
-        raw = server.verify_freelancer_bid(payload.get("bid_id"))
+        raw = server.verify_freelancer_bid(
+            payload.get("bid_id"),
+            project_id=payload.get("project_id"),
+            bidder_id=payload.get("bidder_id"),
+        )
     else:
         return {"status": "failed", "verified": False, "message": "Unsupported trusted gateway operation."}
 
