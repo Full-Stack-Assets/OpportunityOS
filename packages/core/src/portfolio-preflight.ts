@@ -93,6 +93,7 @@ export function classifyWorkScope(request: PortfolioPreflightRequest): WorkScope
 }
 
 function blocked(
+  workId: string,
   scope: WorkScope,
   reason: PortfolioPreflightReason,
   preflight?: PortfolioBuildGraphPreflight,
@@ -101,6 +102,7 @@ function blocked(
     allowed: false,
     scope,
     reason,
+    workId,
     ...(preflight?.primaryProjectId ? { primaryProjectId: preflight.primaryProjectId } : {}),
     ...(preflight?.decision ? { decision: preflight.decision } : {}),
     ...(preflight?.justification ? { justification: preflight.justification } : {}),
@@ -125,28 +127,28 @@ export function evaluatePortfolioPreflight(
   }
 
   if (!knowledgeEvidence || !preflight) {
-    return blocked(scope, 'BUILDGRAPH_PREFLIGHT_REQUIRED', preflight);
+    return blocked(request.id, scope, 'BUILDGRAPH_PREFLIGHT_REQUIRED', preflight);
   }
 
   if (knowledgeEvidence.status === 'BUILDGRAPH_KNOWLEDGE_UNAVAILABLE') {
-    return blocked(scope, 'BUILDGRAPH_KNOWLEDGE_UNAVAILABLE', preflight);
+    return blocked(request.id, scope, 'BUILDGRAPH_KNOWLEDGE_UNAVAILABLE', preflight);
   }
 
   if (knowledgeEvidence.status === 'REVIEW') {
-    return blocked(scope, 'BUILDGRAPH_REVIEW_REQUIRED', preflight);
+    return blocked(request.id, scope, 'BUILDGRAPH_REVIEW_REQUIRED', preflight);
   }
 
   if (knowledgeEvidence.status === 'REUSE_EVIDENCE_FOUND' || preflight.decision !== 'CREATE_NEW') {
-    return blocked(scope, 'BUILDGRAPH_REUSE_REQUIRED', preflight);
+    return blocked(request.id, scope, 'BUILDGRAPH_REUSE_REQUIRED', preflight);
   }
 
   if (!knowledgeEvidence.allowCreateNew) {
-    return blocked(scope, 'BUILDGRAPH_REVIEW_REQUIRED', preflight);
+    return blocked(request.id, scope, 'BUILDGRAPH_REVIEW_REQUIRED', preflight);
   }
 
   const justification = preflight.justification.trim();
   if (!justification) {
-    return blocked(scope, 'BUILDGRAPH_CREATE_NEW_JUSTIFICATION_REQUIRED', preflight);
+    return blocked(request.id, scope, 'BUILDGRAPH_CREATE_NEW_JUSTIFICATION_REQUIRED', preflight);
   }
 
   return {
