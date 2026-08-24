@@ -24,11 +24,11 @@ export interface AtsSessionFactory {
 }
 
 interface ExtractedField {
-  label?: string;
-  name?: string;
-  type?: string;
-  autocomplete?: string;
-  required?: boolean;
+  label?: string | undefined;
+  name?: string | undefined;
+  type?: string | undefined;
+  autocomplete?: string | undefined;
+  required?: boolean | undefined;
 }
 
 function normalizeField(field: ExtractedField, index: number): FormField {
