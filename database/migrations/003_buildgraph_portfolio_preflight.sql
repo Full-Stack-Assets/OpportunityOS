@@ -26,3 +26,23 @@ create index if not exists knowledge_preflight_receipts_project_idx
 
 create index if not exists knowledge_preflight_receipts_work_idx
   on knowledge_preflight_receipts(work_id, generated_at desc);
+
+create or replace function ensure_knowledge_project_policy()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.kind = 'project' then
+    insert into knowledge_project_policies
+      (project_id, preflight_required, routine_bypass_allowed, updated_at)
+    values (new.id, true, true, now())
+    on conflict (project_id) do nothing;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists knowledge_project_policy_inherit on knowledge_entities;
+create trigger knowledge_project_policy_inherit
+after insert on knowledge_entities
+for each row execute function ensure_knowledge_project_policy();
