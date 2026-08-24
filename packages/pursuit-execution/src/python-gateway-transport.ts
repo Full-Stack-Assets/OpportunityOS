@@ -60,6 +60,11 @@ export function createPythonFreelancerGatewayTransport(options: PythonGatewayTra
           ...(typeof candidate.external_id === 'string' ? { external_id: candidate.external_id } : {}),
           ...(Array.isArray(candidate.evidence_refs) && candidate.evidence_refs.every((ref) => typeof ref === 'string') ? { evidence_refs: candidate.evidence_refs } : {}),
           ...(typeof candidate.message === 'string' ? { message: candidate.message } : stderr ? { message: 'Trusted gateway reported an execution error.' } : {}),
+          ...(typeof candidate.account_id === 'string' ? { account_id: candidate.account_id } : {}),
+          ...(typeof candidate.project_id === 'string' ? { project_id: candidate.project_id } : {}),
+          ...(typeof candidate.title === 'string' ? { title: candidate.title } : {}),
+          ...(typeof candidate.bid_count === 'number' && Number.isSafeInteger(candidate.bid_count) && candidate.bid_count >= 0 ? { bid_count: candidate.bid_count } : {}),
+          ...(candidate.external_side_effects === 0 ? { external_side_effects: 0 } : {}),
         });
       } catch {
         finish({ status: 'failed', verified: false, message: 'Trusted gateway returned malformed JSON.' });
