@@ -34,6 +34,13 @@ export interface PortfolioPreflightPolicy {
   exemptionDecisionId?: string;
 }
 
+export type PortfolioKnowledgeEvidence = Pick<KnowledgePreflightEvidence, 'status' | 'allowCreateNew'>;
+
+export type PortfolioBuildGraphPreflight = Pick<
+  BuildGraphPreflightResult,
+  'decision' | 'primaryProjectId' | 'justification' | 'evidence'
+>;
+
 export type PortfolioPreflightReason =
   | 'ROUTINE_BYPASS'
   | 'BUILDGRAPH_PREFLIGHT_REQUIRED'
@@ -88,7 +95,7 @@ export function classifyWorkScope(request: PortfolioPreflightRequest): WorkScope
 function blocked(
   scope: WorkScope,
   reason: PortfolioPreflightReason,
-  preflight?: BuildGraphPreflightResult,
+  preflight?: PortfolioBuildGraphPreflight,
 ): PortfolioPreflightDecision {
   return {
     allowed: false,
@@ -104,8 +111,8 @@ function blocked(
 export function evaluatePortfolioPreflight(
   request: PortfolioPreflightRequest,
   policy: PortfolioPreflightPolicy,
-  knowledgeEvidence: KnowledgePreflightEvidence | undefined,
-  preflight: BuildGraphPreflightResult | undefined,
+  knowledgeEvidence: PortfolioKnowledgeEvidence | undefined,
+  preflight: PortfolioBuildGraphPreflight | undefined,
 ): PortfolioPreflightDecision {
   const scope = classifyWorkScope(request);
 
