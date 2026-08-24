@@ -3,3 +3,4 @@ export * from './challenge-detector.ts';
 export * from './generic-driver.ts';
 export * from './provider-driver.ts';
 export * from './playwright-providers.ts';
+export * from './ats-verifier.ts';
