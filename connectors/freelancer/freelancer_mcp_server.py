@@ -398,7 +398,6 @@ def _bid_result(status: str, message: str, **extra: object) -> str:
     return json.dumps(payload, indent=2)
 
 
-@mcp.tool()
 def submit_freelancer_bid(
     project_id: int,
     bidder_id: int,
@@ -409,7 +408,7 @@ def submit_freelancer_bid(
     approval_ref: str,
     idempotency_key: str,
 ) -> str:
-    """Place one approved Freelancer bid through the official API. Disabled unless explicitly enabled."""
+    """Internal trusted-gateway adapter for one approved Freelancer bid."""
     validation_error = _validate_bid_input(
         project_id,
         bidder_id,
@@ -478,9 +477,8 @@ def submit_freelancer_bid(
     )
 
 
-@mcp.tool()
 def verify_freelancer_bid(bid_id: int) -> str:
-    """Independently retrieve a bid by ID for post-write reconciliation."""
+    """Internal trusted-gateway reconciliation for a Freelancer bid by ID."""
     if isinstance(bid_id, bool) or not isinstance(bid_id, int) or bid_id <= 0:
         return _validation_error("bid_id must be a positive integer")
     if not ACCESS_TOKEN:
@@ -534,12 +532,13 @@ def freelancer_connector_status() -> str:
         "api_base_hostname": urlparse(FREELANCER_API_BASE).hostname,
         "access_token_configured": bool(ACCESS_TOKEN),
         "live_writes_enabled": LIVE_WRITES_ENABLED,
+        "write_surface": "internal_gateway_only",
         "capabilities": {
             "project_search": True,
             "profile_lookup": True,
             "oauth_url_generation": True,
-            "bid_submission": True,
-            "bid_verification": True,
+            "bid_submission": LIVE_WRITES_ENABLED,
+            "bid_verification": bool(ACCESS_TOKEN),
             "messaging": False,
             "financial_actions": False,
         },
