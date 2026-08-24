@@ -36,6 +36,7 @@ function challengeOutcome(status: PursuitExecutionStatus): BrowserSubmissionResu
     case 'MFA_REQUIRED': return 'MFA_REQUIRED';
     case 'CAPTCHA_REQUIRED': return 'CAPTCHA_REQUIRED';
     case 'SESSION_EXPIRED': return 'SESSION_EXPIRED';
+    case 'ACCOUNT_MISMATCH': return 'ACCOUNT_MISMATCH';
     default: return undefined;
   }
 }
@@ -73,7 +74,6 @@ export class ProviderAtsPlaywrightDriver<Page = unknown> implements BrowserPursu
     try {
       const before = await provider.detectChallenge(page, action.route.accountRef);
       if (before) {
-        if (before === 'ACCOUNT_MISMATCH') return { outcome: 'FAILED', reason: 'ACCOUNT_MISMATCH' };
         const mapped = challengeOutcome(before);
         return mapped ? { outcome: mapped } : { outcome: 'FAILED', reason: before };
       }
@@ -93,7 +93,6 @@ export class ProviderAtsPlaywrightDriver<Page = unknown> implements BrowserPursu
 
       const afterFill = await provider.detectChallenge(page, action.route.accountRef);
       if (afterFill) {
-        if (afterFill === 'ACCOUNT_MISMATCH') return { outcome: 'FAILED', reason: 'ACCOUNT_MISMATCH' };
         const mapped = challengeOutcome(afterFill);
         return mapped ? { outcome: mapped } : { outcome: 'FAILED', reason: afterFill };
       }
