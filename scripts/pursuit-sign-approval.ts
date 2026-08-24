@@ -29,18 +29,17 @@ const accountRef = required('account-ref');
 const subject = required('subject');
 const expiresAt = required('expires-at');
 const approvalId = required('approval-id');
+const executorType = arg('executor-type') ?? 'official_api';
+if (executorType !== 'official_api' && executorType !== 'browser') throw new Error('--executor-type must be official_api or browser');
 const output = arg('output') ?? '.local/canary-approval.json';
 
 const application = JSON.parse(await readFile(applicationPath, 'utf8')) as PreparedApplication;
 if (application.payloadHash !== expectedPayloadHash) throw new Error('Human-confirmed payload hash does not match application payloadHash');
 if (!Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now()) throw new Error('--expires-at must be a future timestamp');
 
-const route = {
-  executorType: 'official_api' as const,
-  platform: application.targetPlatform,
-  accountRef,
-  credentialRef: `${application.targetPlatform}-credential:runtime`,
-};
+const route = executorType === 'official_api'
+  ? { executorType: 'official_api' as const, platform: application.targetPlatform, accountRef, credentialRef: `${application.targetPlatform}-credential:runtime` }
+  : { executorType: 'browser' as const, platform: application.targetPlatform, accountRef, sessionRef: `${application.targetPlatform}-session:runtime` };
 const intent = createPursuitIntent(application, route, 'LIVE_AUTHORIZED');
 const unsigned = createApproval(intent, { approvalId, subject, expiresAt, signature: '' });
 const signatureBody = hashCanonical({
@@ -55,4 +54,4 @@ const signature = createHmac('sha256', hmacKey()).update(signatureBody).digest('
 const approval = { ...unsigned, signature };
 await mkdir(path.dirname(output), { recursive: true });
 await writeFile(output, JSON.stringify(approval, null, 2), { mode: 0o600 });
-process.stdout.write(`${JSON.stringify({ status: 'APPROVAL_CREATED', approvalId, actionId: approval.actionId, payloadHash: approval.payloadHash, expiresAt, output }, null, 2)}\n`);
+process.stdout.write(`${JSON.stringify({ status: 'APPROVAL_CREATED', approvalId, actionId: approval.actionId, payloadHash: approval.payloadHash, executorType, expiresAt, output }, null, 2)}\n`);
