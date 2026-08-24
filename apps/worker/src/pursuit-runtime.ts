@@ -4,9 +4,9 @@ import type {
   ExecutionResult,
   ExecutorRouter,
   PursuitExecutionStatus,
+  PursuitVerificationResult,
   PursuitVerifier,
   SessionBroker,
-  VerificationResult,
 } from '@opportunityos/core';
 
 export interface PursuitRuntimeDependencies {
@@ -26,7 +26,7 @@ export interface PursuitRuntimeResult {
   status: PursuitExecutionStatus;
   verified: boolean;
   execution?: ExecutionResult;
-  verification?: VerificationResult;
+  verification?: PursuitVerificationResult;
   reason?: string;
 }
 
