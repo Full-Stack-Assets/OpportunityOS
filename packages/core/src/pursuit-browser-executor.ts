@@ -17,6 +17,7 @@ export type BrowserSubmissionOutcome =
   | 'MFA_REQUIRED'
   | 'CAPTCHA_REQUIRED'
   | 'SESSION_EXPIRED'
+  | 'ACCOUNT_MISMATCH'
   | 'REJECTED_BY_PLATFORM'
   | 'FAILED';
 
@@ -111,6 +112,7 @@ export class GuardedBrowserPursuitExecutor implements PursuitExecutor {
       case 'MFA_REQUIRED': return { ...common, status: 'MFA_REQUIRED' };
       case 'CAPTCHA_REQUIRED': return { ...common, status: 'CAPTCHA_REQUIRED' };
       case 'SESSION_EXPIRED': return { ...common, status: 'SESSION_EXPIRED' };
+      case 'ACCOUNT_MISMATCH': return { ...common, status: 'ACCOUNT_MISMATCH' };
       case 'REJECTED_BY_PLATFORM': return { ...common, status: 'REJECTED_BY_PLATFORM' };
       case 'FAILED': return { ...common, status: 'FAILED' };
     }
