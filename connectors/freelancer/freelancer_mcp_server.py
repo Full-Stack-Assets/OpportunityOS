@@ -15,7 +15,8 @@ logger = logging.getLogger("freelancer-mcp")
 
 FREELANCER_API_BASE = os.getenv("FREELANCER_API_BASE", "https://www.freelancer.com/api")
 ACCESS_TOKEN = os.getenv("FREELANCER_ACCESS_TOKEN", "")
-CONNECTOR_VERSION = "1.0.0"
+LIVE_WRITES_ENABLED = os.getenv("FREELANCER_LIVE_WRITES_ENABLED", "false").strip().lower() == "true"
+CONNECTOR_VERSION = "1.1.0"
 
 
 def _validate_query(query: str) -> str:
@@ -166,7 +167,7 @@ def search_freelancer_projects(query: str, limit: int = 5) -> str:
 
     headers = {
         "Content-Type": "application/json",
-        "User-Agent": "FreelancerMCPConnector/1.0",
+        "User-Agent": "FreelancerMCPConnector/1.1",
     }
     if ACCESS_TOKEN:
         headers["Authorization"] = f"Bearer {ACCESS_TOKEN}"
@@ -184,18 +185,10 @@ def search_freelancer_projects(query: str, limit: int = 5) -> str:
         response = requests.get(url, headers=headers, params=params, timeout=10)
     except requests.RequestException:
         logger.warning("Freelancer project search unavailable due to request failure")
-        return _search_failure(
-            "unavailable",
-            query,
-            "Freelancer API request could not be completed.",
-        )
+        return _search_failure("unavailable", query, "Freelancer API request could not be completed.")
     except Exception:
         logger.exception("Unexpected local error during Freelancer project search")
-        return _search_failure(
-            "error",
-            query,
-            "Unexpected local error while searching Freelancer projects.",
-        )
+        return _search_failure("error", query, "Unexpected local error while searching Freelancer projects.")
 
     if response.status_code != 200:
         return _search_failure(
@@ -208,26 +201,16 @@ def search_freelancer_projects(query: str, limit: int = 5) -> str:
     try:
         data = response.json()
     except (ValueError, requests.exceptions.JSONDecodeError):
-        return _search_failure(
-            "invalid_response",
-            query,
-            "Freelancer API returned a non-JSON or malformed JSON response.",
-        )
+        return _search_failure("invalid_response", query, "Freelancer API returned a non-JSON or malformed JSON response.")
 
     if not isinstance(data, dict):
-        return _search_failure(
-            "invalid_response", query, "Freelancer API response was structurally invalid."
-        )
+        return _search_failure("invalid_response", query, "Freelancer API response was structurally invalid.")
     result = data.get("result")
     if not isinstance(result, dict):
-        return _search_failure(
-            "invalid_response", query, "Freelancer API response was structurally invalid."
-        )
+        return _search_failure("invalid_response", query, "Freelancer API response was structurally invalid.")
     projects = result.get("projects")
     if not isinstance(projects, list):
-        return _search_failure(
-            "invalid_response", query, "Freelancer API response was structurally invalid."
-        )
+        return _search_failure("invalid_response", query, "Freelancer API response was structurally invalid.")
 
     retrieved_at = _utc_now()
     normalized = [
@@ -236,9 +219,7 @@ def search_freelancer_projects(query: str, limit: int = 5) -> str:
         if (record := _normalize_project(project, retrieved_at)) is not None
     ]
     if projects[:limit] and not normalized:
-        return _search_failure(
-            "invalid_response", query, "Freelancer API returned no structurally valid projects."
-        )
+        return _search_failure("invalid_response", query, "Freelancer API returned no structurally valid projects.")
 
     return json.dumps({
         "status": "success",
@@ -288,7 +269,7 @@ def get_freelancer_user_profile(username: str) -> str:
         "country_details": True,
         "location_details": True,
     }
-    headers = {"User-Agent": "FreelancerMCPConnector/1.0"}
+    headers = {"User-Agent": "FreelancerMCPConnector/1.1"}
     if ACCESS_TOKEN:
         headers["Authorization"] = f"Bearer {ACCESS_TOKEN}"
 
@@ -296,14 +277,10 @@ def get_freelancer_user_profile(username: str) -> str:
         response = requests.get(url, headers=headers, params=params, timeout=10)
     except requests.RequestException:
         logger.warning("Freelancer profile lookup unavailable due to request failure")
-        return _profile_failure(
-            "unavailable", username, "Freelancer API request could not be completed."
-        )
+        return _profile_failure("unavailable", username, "Freelancer API request could not be completed.")
     except Exception:
         logger.exception("Unexpected local error during Freelancer profile lookup")
-        return _profile_failure(
-            "error", username, "Unexpected local error while retrieving Freelancer profile."
-        )
+        return _profile_failure("error", username, "Unexpected local error while retrieving Freelancer profile.")
 
     if response.status_code != 200:
         return _profile_failure(
@@ -316,33 +293,23 @@ def get_freelancer_user_profile(username: str) -> str:
     try:
         payload = response.json()
     except (ValueError, requests.exceptions.JSONDecodeError):
-        return _profile_failure(
-            "invalid_response", username, "Freelancer API returned malformed JSON."
-        )
+        return _profile_failure("invalid_response", username, "Freelancer API returned malformed JSON.")
 
     if not isinstance(payload, dict) or not isinstance(payload.get("result"), dict):
-        return _profile_failure(
-            "invalid_response", username, "Freelancer API response was structurally invalid."
-        )
+        return _profile_failure("invalid_response", username, "Freelancer API response was structurally invalid.")
 
     users = payload["result"].get("users")
     if not isinstance(users, dict):
-        return _profile_failure(
-            "invalid_response", username, "Freelancer API response was structurally invalid."
-        )
+        return _profile_failure("invalid_response", username, "Freelancer API response was structurally invalid.")
     if not users:
-        return _profile_failure(
-            "unavailable", username, "Freelancer API returned no matching user."
-        )
+        return _profile_failure("unavailable", username, "Freelancer API returned no matching user.")
 
     data = next((
         user for user in users.values()
         if isinstance(user, dict) and user.get("username") == username
     ), None)
     if data is None:
-        return _profile_failure(
-            "invalid_response", username, "Freelancer API returned no verifiable username match."
-        )
+        return _profile_failure("invalid_response", username, "Freelancer API returned no verifiable username match.")
 
     location = data.get("location")
     country_name = None
@@ -390,21 +357,188 @@ def generate_freelancer_oauth_auth_url(client_id: str, redirect_uri: str) -> str
     }, indent=2)
 
 
+def _validate_bid_input(
+    project_id: int,
+    bidder_id: int,
+    amount: int | float,
+    period: int,
+    milestone_percentage: int,
+    description: str,
+    approval_ref: str,
+    idempotency_key: str,
+) -> str | None:
+    if isinstance(project_id, bool) or not isinstance(project_id, int) or project_id <= 0:
+        return "project_id must be a positive integer"
+    if isinstance(bidder_id, bool) or not isinstance(bidder_id, int) or bidder_id <= 0:
+        return "bidder_id must be a positive integer"
+    if isinstance(amount, bool) or not isinstance(amount, (int, float)) or not math.isfinite(amount) or amount <= 0:
+        return "amount must be a positive finite number"
+    if isinstance(period, bool) or not isinstance(period, int) or period <= 0:
+        return "period must be a positive integer"
+    if isinstance(milestone_percentage, bool) or not isinstance(milestone_percentage, int) or not 0 <= milestone_percentage <= 100:
+        return "milestone_percentage must be an integer between 0 and 100"
+    if not isinstance(description, str) or not description.strip():
+        return "description must be a non-blank string"
+    if not isinstance(approval_ref, str) or not approval_ref.strip():
+        return "approval_ref must be a non-blank string"
+    if not isinstance(idempotency_key, str) or not idempotency_key.strip():
+        return "idempotency_key must be a non-blank string"
+    return None
+
+
+def _bid_result(status: str, message: str, **extra: object) -> str:
+    payload = {
+        "status": status,
+        "source": "freelancer",
+        "verified": False,
+        "message": message,
+        "attempted_at": _utc_now(),
+    }
+    payload.update(extra)
+    return json.dumps(payload, indent=2)
+
+
+def submit_freelancer_bid(
+    project_id: int,
+    bidder_id: int,
+    amount: float,
+    period: int,
+    milestone_percentage: int,
+    description: str,
+    approval_ref: str,
+    idempotency_key: str,
+) -> str:
+    """Internal trusted-gateway adapter for one approved Freelancer bid."""
+    validation_error = _validate_bid_input(
+        project_id,
+        bidder_id,
+        amount,
+        period,
+        milestone_percentage,
+        description,
+        approval_ref,
+        idempotency_key,
+    )
+    if validation_error:
+        return _bid_result("error", validation_error)
+    if not LIVE_WRITES_ENABLED:
+        return _bid_result("needs_human_auth", "Live Freelancer bid writes are disabled by policy.")
+    if not ACCESS_TOKEN:
+        return _bid_result("auth_required", "Freelancer OAuth access token is not configured.")
+
+    url = f"{FREELANCER_API_BASE.rstrip('/')}/projects/0.1/bids/"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+        "User-Agent": "FreelancerMCPConnector/1.1",
+        "Idempotency-Key": idempotency_key.strip(),
+    }
+    payload = {
+        "project_id": project_id,
+        "bidder_id": bidder_id,
+        "description": description.strip(),
+        "amount": amount,
+        "period": period,
+        "milestone_percentage": milestone_percentage,
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+    except requests.RequestException:
+        logger.warning("Freelancer bid submission request failed")
+        return _bid_result("failed", "Freelancer API request could not be completed.")
+    except Exception:
+        logger.exception("Unexpected local error during Freelancer bid submission")
+        return _bid_result("failed", "Unexpected local error while submitting Freelancer bid.")
+
+    try:
+        data = response.json()
+    except (ValueError, requests.exceptions.JSONDecodeError):
+        return _bid_result("executed_unverified", "Freelancer returned an unreadable response after the write attempt.", status_code=response.status_code)
+
+    if response.status_code != 200:
+        message = data.get("message") if isinstance(data, dict) and isinstance(data.get("message"), str) else "Freelancer rejected the bid submission."
+        error_code = data.get("error_code") if isinstance(data, dict) else None
+        return _bid_result(
+            "rejected_by_platform",
+            message,
+            status_code=response.status_code,
+            **({"error_code": error_code} if error_code is not None else {}),
+        )
+
+    result = data.get("result") if isinstance(data, dict) else None
+    external_id = _source_identifier(result.get("id")) if isinstance(result, dict) else None
+    return _bid_result(
+        "executed_unverified",
+        "Freelancer accepted the bid write; independent verification is still required.",
+        approval_ref=approval_ref.strip(),
+        idempotency_key=idempotency_key.strip(),
+        **({"external_id": external_id} if external_id is not None else {}),
+    )
+
+
+def verify_freelancer_bid(bid_id: int) -> str:
+    """Internal trusted-gateway reconciliation for a Freelancer bid by ID."""
+    if isinstance(bid_id, bool) or not isinstance(bid_id, int) or bid_id <= 0:
+        return _validation_error("bid_id must be a positive integer")
+    if not ACCESS_TOKEN:
+        return _bid_result("auth_required", "Freelancer OAuth access token is not configured.")
+
+    url = f"{FREELANCER_API_BASE.rstrip('/')}/projects/0.1/bids/"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "User-Agent": "FreelancerMCPConnector/1.1",
+    }
+    try:
+        response = requests.get(url, headers=headers, params={"bids[]": [bid_id], "limit": 1}, timeout=10)
+    except requests.RequestException:
+        return _bid_result("unavailable", "Freelancer bid verification request could not be completed.")
+
+    if response.status_code != 200:
+        return _bid_result("unavailable", "Freelancer did not return a successful verification response.", status_code=response.status_code)
+    try:
+        data = response.json()
+    except (ValueError, requests.exceptions.JSONDecodeError):
+        return _bid_result("invalid_response", "Freelancer returned malformed verification JSON.")
+
+    result = data.get("result") if isinstance(data, dict) else None
+    bids = result.get("bids") if isinstance(result, dict) else None
+    candidate = None
+    if isinstance(bids, dict):
+        candidate = bids.get(str(bid_id)) or bids.get(bid_id)
+    elif isinstance(bids, list):
+        candidate = next((bid for bid in bids if isinstance(bid, dict) and _source_identifier(bid.get("id")) == str(bid_id)), None)
+    if not isinstance(candidate, dict):
+        return _bid_result("executed_unverified", "No matching bid was found during independent reconciliation.")
+
+    return json.dumps({
+        "status": "submitted_verified",
+        "source": "freelancer",
+        "verified": True,
+        "external_id": str(bid_id),
+        "evidence_refs": [f"freelancer-api://bid/{bid_id}"],
+        "verified_at": _utc_now(),
+    }, indent=2)
+
+
 @mcp.tool()
 def freelancer_connector_status() -> str:
-    """Report read-only connector capabilities without exposing credentials."""
+    """Report connector capabilities without exposing credentials."""
     return json.dumps({
         "status": "ok",
         "connector": "freelancer",
         "version": CONNECTOR_VERSION,
-        "mode": "read_only_source_adapter",
+        "mode": "guarded_write_adapter" if LIVE_WRITES_ENABLED else "read_only_source_adapter",
         "api_base_hostname": urlparse(FREELANCER_API_BASE).hostname,
         "access_token_configured": bool(ACCESS_TOKEN),
+        "live_writes_enabled": LIVE_WRITES_ENABLED,
+        "write_surface": "internal_gateway_only",
         "capabilities": {
             "project_search": True,
             "profile_lookup": True,
             "oauth_url_generation": True,
-            "bid_submission": False,
+            "bid_submission": LIVE_WRITES_ENABLED,
+            "bid_verification": bool(ACCESS_TOKEN),
             "messaging": False,
             "financial_actions": False,
         },

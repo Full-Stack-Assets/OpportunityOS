@@ -1,0 +1,6 @@
+import type { EncryptedStore } from './encrypted-store.ts';
+export type PursuitScope='submit_bid'|'submit_application'|'fill_application'|'upload_resume';
+export interface BrokerRecord { platform:string; accountId:string; scopes:PursuitScope[]; status:'ACTIVE'|'EXPIRED'|'REVOKED' }
+export interface BrokerRequest { platform:string; accountId:string; scope:PursuitScope }
+export class CredentialBroker { constructor(private store:EncryptedStore,private records:Map<string,BrokerRecord>){ } resolve(ref:string,request:BrokerRequest){const r=this.records.get(ref); if(!r||r.status!=='ACTIVE') throw new Error('AUTH_REQUIRED'); if(r.platform!==request.platform||r.accountId!==request.accountId) throw new Error('ACCOUNT_MISMATCH'); if(!r.scopes.includes(request.scope)) throw new Error('NEEDS_HUMAN_AUTH'); return this.store.get(ref)??(()=>{throw new Error('AUTH_REQUIRED')})();} }
+export class SessionBroker { constructor(private records:Map<string,BrokerRecord>){ } resolve(ref:string,request:BrokerRequest){const r=this.records.get(ref); if(!r||r.status!=='ACTIVE') throw new Error('SESSION_EXPIRED'); if(r.platform!==request.platform||r.accountId!==request.accountId) throw new Error('ACCOUNT_MISMATCH'); if(!r.scopes.includes(request.scope)) throw new Error('NEEDS_HUMAN_AUTH'); return {sessionRef:ref,platform:r.platform,accountId:r.accountId};} }

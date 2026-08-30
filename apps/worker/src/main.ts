@@ -14,6 +14,8 @@ import {
   type SimulationResult,
 } from '@opportunityos/core';
 
+export * from './pursuit-runtime.ts';
+
 export interface WorkerPreparationInput {
   workOrderId: string;
   buildRequest: BuildGraphRequest;
