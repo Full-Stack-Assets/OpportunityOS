@@ -98,6 +98,7 @@ test('verified $1.4M software procurement budget becomes P0-Critical investigati
   assert.equal(packet.criticalReason, 'BUDGET');
   assert.equal(packet.commercialValue.contractValue.maxCents, 140_000_000);
   assert.equal(packet.commercialValue.contractValue.expectedCents, null);
+  assert.equal(packet.pursuitTier.tier, 'STRONG_MATCH');
   assert.equal(packet.externalActionAllowed, false);
   assert.equal(packet.revalidation.state, 'CURRENT');
   assert.ok(packet.factVsInference.some((item) => item.kind === 'FACT' && item.statement.includes('$1.4M')));
@@ -157,9 +158,10 @@ test('bare task resolution without evidence cannot unlock readiness', () => {
   assert.ok(packet.proofTasks.some((task) => task.id === falsifyId && task.required));
 });
 
-test('unknown eligibility creates an explicit verification task', () => {
+test('unknown eligibility creates an explicit verification task and remains visible as requires-clarification', () => {
   const packet = core.buildCommercialInvestigation(investigationInput({eligibilityChecks: []}));
   assert.equal(packet.eligibility.state, 'UNKNOWN');
+  assert.equal(packet.pursuitTier.tier, 'REQUIRES_CLARIFICATION');
   assert.equal(packet.approvalReadiness, 'NOT_READY');
   assert.ok(packet.proofTasks.some((task) => task.kind === 'VERIFY_ELIGIBILITY' && task.required));
 });
